@@ -1,0 +1,42 @@
+name: transjakarta_analytics
+version: 1.0.0
+config-version: 2
+
+profile: transjakarta_analytics
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Naming convention:
+#   stg_*    staging        (views, 1:1 with raw, light cleaning)
+#   int_*    intermediate   (views, business logic, ephemeral by default)
+#   dim_*    dimension      (tables in marts.core)
+#   fact_*   fact           (tables in marts.core)
+#   report_* presentation   (tables in marts.presentation)
+models:
+  transjakarta_analytics:
+    staging:
+      +materialized: view
+      +schema: staging
+      gtfs:
+        +tags: ["gtfs", "staging"]
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+    marts:
+      core:
+        +materialized: table
+        +schema: marts_core
+        +tags: ["marts", "core"]
+      presentation:
+        +materialized: table
+        +schema: marts_presentation
+        +tags: ["marts", "presentation"]

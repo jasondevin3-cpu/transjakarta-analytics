@@ -1,0 +1,64 @@
+version: 2
+
+sources:
+  - name: raw_gtfs
+    database: "{{ env_var('GCP_PROJECT_ID', 'your-gcp-project-id') }}"
+    schema: raw_gtfs
+    description: |
+      Raw GTFS static feed for Transjakarta, loaded by the Python ingestion
+      pipeline (`ingestion/gtfs/loader.py`). Each table is WRITE_TRUNCATE'd
+      on every load, so the BigQuery copy always reflects the latest feed.
+      Historical snapshots are archived in GCS under gs://{bucket}/gtfs/raw/.
+    loader: python_gtfs_loader
+    loaded_at_field: _PARTITIONTIME  # via BigQuery ingestion-time partition
+    freshness:
+      warn_after: { count: 8, period: day }
+      error_after: { count: 30, period: day }
+    tables:
+      - name: agency
+        description: Operators running services in the feed.
+      - name: stops
+        description: All Transjakarta stops (BRT, non-BRT, transit hubs).
+        columns:
+          - name: stop_id
+            description: Stable identifier for a stop.
+            data_tests:
+              - not_null
+              - unique
+      - name: routes
+        description: Route definitions (route_id, short/long names, route_type).
+        columns:
+          - name: route_id
+            data_tests:
+              - not_null
+              - unique
+      - name: trips
+        description: One row per scheduled trip on a route + service pattern.
+        columns:
+          - name: trip_id
+            data_tests:
+              - not_null
+              - unique
+          - name: route_id
+            data_tests:
+              - not_null
+              - relationships:
+                  to: source('raw_gtfs', 'routes')
+                  field: route_id
+      - name: stop_times
+        description: |
+          The largest table — one row per trip × stop arrival. Drives all
+          headway/frequency analysis.
+        columns:
+          - name: trip_id
+            data_tests:
+              - not_null
+          - name: stop_id
+            data_tests:
+              - not_null
+      - name: calendar
+        description: Weekly service patterns with start/end date.
+      - name: calendar_dates
+        description: Exceptions to the weekly service pattern (added/removed dates).
+      - name: shapes
+        description: Polyline points for drawing route geometry on a map.

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.python-version
+
+# dbt
+dbt_transjakarta/target/
+dbt_transjakarta/dbt_packages/
+dbt_transjakarta/logs/
+dbt_transjakarta/.user.yml
+profiles.yml
+
+# Local data / scratch
+data/
+*.zip
+*.csv
+!dbt_transjakarta/seeds/*.csv
+
+# Credentials — never commit
+*.json
+!**/schemas/*.json
+.env
+.env.*
+!.env.example
+gcp-service-account*.json
+credentials*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Notebooks
+.ipynb_checkpoints/

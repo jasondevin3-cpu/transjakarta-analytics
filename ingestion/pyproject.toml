@@ -1,0 +1,26 @@
+[project]
+name = "transjakarta-ingestion"
+version = "0.1.0"
+description = "Ingestion pipelines for Transjakarta GTFS and Jakarta open data into BigQuery"
+requires-python = ">=3.11"
+dependencies = [
+    "google-cloud-storage>=2.14.0",
+    "google-cloud-bigquery>=3.17.0",
+    "pandas>=2.2.0",
+    "pyarrow>=15.0.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=8.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

@@ -1,0 +1,18 @@
+# Registry of Jakarta open-data datasets to ingest.
+# Add a new entry here and the loader will pick it up on the next run.
+# Discover datasets at https://data.jakarta.go.id.
+#
+# Each entry:
+#   name:        BigQuery table name (snake_case, no prefix)
+#   url:         Direct download URL for the CSV/Excel file
+#   format:      csv | xlsx
+#   description: One-line context, used in dbt source descriptions later
+#   refresh:     informational only — daily | monthly | one_off
+
+datasets: []
+  # Example (uncomment and adapt once you have a real dataset URL):
+  # - name: jakarta_population_by_kelurahan
+  #   url: https://data.jakarta.go.id/dataset/.../download/...csv
+  #   format: csv
+  #   description: Population by kelurahan (smallest admin unit) from BPS / DKI Jakarta
+  #   refresh: one_off

@@ -1,0 +1,109 @@
+version: 2
+
+models:
+  - name: stg_gtfs__stops
+    description: |
+      One row per Transjakarta stop. Cleaned column names, typed coordinates,
+      and parent-station linkage. Materialized as a view (cheap, always fresh).
+    columns:
+      - name: stop_id
+        description: Stable stop identifier from the GTFS feed.
+        data_tests:
+          - not_null
+          - unique
+      - name: stop_name
+        description: Human-readable stop name.
+        data_tests:
+          - not_null
+      - name: stop_latitude
+        description: WGS84 latitude.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -7.0
+              max_value: -5.0
+              row_condition: "stop_latitude is not null"
+      - name: stop_longitude
+        description: WGS84 longitude.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 106.0
+              max_value: 107.5
+              row_condition: "stop_longitude is not null"
+      - name: parent_station_id
+        description: For child stops, the stop_id of the parent station; null otherwise.
+
+  - name: stg_gtfs__routes
+    description: One row per Transjakarta route, with human-readable route_type name.
+    columns:
+      - name: route_id
+        data_tests:
+          - not_null
+          - unique
+      - name: route_type_code
+        data_tests:
+          - not_null
+      - name: route_type_name
+        data_tests:
+          - accepted_values:
+              values: ['tram', 'subway', 'rail', 'bus', 'ferry', 'cable_tram',
+                       'aerial_lift', 'funicular', 'trolleybus', 'monorail', 'unknown']
+
+  - name: stg_gtfs__trips
+    description: One row per scheduled trip, linking route + service pattern + shape.
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+          - unique
+      - name: route_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs__routes')
+              field: route_id
+      - name: service_id
+        data_tests:
+          - not_null
+      - name: direction_id
+        description: 0 or 1; meaning is route-specific (often outbound/inbound).
+        data_tests:
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+
+  - name: stg_gtfs__stop_times
+    description: |
+      One row per trip x stop. Largest table. arrival/departure preserved as
+      both raw string and seconds-from-service-midnight (handles 24:00:00+).
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs__trips')
+              field: trip_id
+      - name: stop_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs__stops')
+              field: stop_id
+      - name: stop_sequence
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+
+  - name: stg_gtfs__calendar
+    description: Weekly service patterns with start/end dates and per-day boolean flags.
+    columns:
+      - name: service_id
+        data_tests:
+          - not_null
+          - unique
+      - name: service_start_date
+        data_tests:
+          - not_null
+      - name: service_end_date
+        data_tests:
+          - not_null
