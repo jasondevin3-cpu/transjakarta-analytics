@@ -2,7 +2,8 @@
 GTFS loader for Transjakarta.
 
 Pipeline:
-  1. Download the GTFS .zip from GTFS_FEED_URL.
+  1. Obtain the GTFS .zip — either from GTFS_FEED_URL (HTTP download)
+     or GTFS_LOCAL_ZIP (path to a local file). Exactly one must be set.
   2. Upload the raw zip to GCS at gs://{bucket}/gtfs/raw/{snapshot_date}/feed.zip
      (immutable archive — useful for reproducing any past run).
   3. Unzip in memory, upload each .txt as CSV to
@@ -15,7 +16,8 @@ Run:
     python -m ingestion.gtfs.loader
 
 Environment variables (see .env.example):
-    GCP_PROJECT_ID, GCS_BUCKET, BQ_DATASET_RAW, GTFS_FEED_URL,
+    GCP_PROJECT_ID, GCS_BUCKET, BQ_DATASET_RAW,
+    GTFS_FEED_URL or GTFS_LOCAL_ZIP,
     GOOGLE_APPLICATION_CREDENTIALS
 """
 
@@ -64,31 +66,51 @@ class Config:
     gcp_project: str
     gcs_bucket: str
     bq_dataset_raw: str
-    gtfs_url: str
+    gtfs_url: str | None
+    gtfs_local_zip: str | None
     snapshot_date: str
 
     @classmethod
     def from_env(cls) -> "Config":
         load_dotenv()
-        missing = [
-            k
-            for k in ("GCP_PROJECT_ID", "GCS_BUCKET", "BQ_DATASET_RAW", "GTFS_FEED_URL")
-            if not os.getenv(k)
-        ]
+        required = ("GCP_PROJECT_ID", "GCS_BUCKET", "BQ_DATASET_RAW")
+        missing = [k for k in required if not os.getenv(k)]
         if missing:
             raise SystemExit(f"Missing required env vars: {', '.join(missing)}")
+
+        gtfs_url = os.getenv("GTFS_FEED_URL") or None
+        gtfs_local_zip = os.getenv("GTFS_LOCAL_ZIP") or None
+        # Treat the placeholder URL from .env.example as "unset"
+        if gtfs_url and "example.com" in gtfs_url:
+            gtfs_url = None
+        if not gtfs_url and not gtfs_local_zip:
+            raise SystemExit(
+                "Set GTFS_FEED_URL (HTTP source) or GTFS_LOCAL_ZIP (local file path)."
+            )
+
         return cls(
             gcp_project=os.environ["GCP_PROJECT_ID"],
             gcs_bucket=os.environ["GCS_BUCKET"],
             bq_dataset_raw=os.environ["BQ_DATASET_RAW"],
-            gtfs_url=os.environ["GTFS_FEED_URL"],
+            gtfs_url=gtfs_url,
+            gtfs_local_zip=gtfs_local_zip,
             snapshot_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         )
 
 
-def download_feed(url: str) -> bytes:
-    log.info("Downloading GTFS feed from %s", url)
-    resp = requests.get(url, timeout=120)
+def fetch_feed(cfg: Config) -> bytes:
+    """Return GTFS zip bytes, either from a local file or a remote URL."""
+    if cfg.gtfs_local_zip:
+        path = Path(cfg.gtfs_local_zip).expanduser().resolve()
+        if not path.exists():
+            raise SystemExit(f"GTFS_LOCAL_ZIP set but file not found: {path}")
+        log.info("Reading GTFS feed from local file %s", path)
+        data = path.read_bytes()
+        log.info("Read %.2f MB", len(data) / 1_048_576)
+        return data
+
+    log.info("Downloading GTFS feed from %s", cfg.gtfs_url)
+    resp = requests.get(cfg.gtfs_url, timeout=120)
     resp.raise_for_status()
     log.info("Downloaded %.2f MB", len(resp.content) / 1_048_576)
     return resp.content
@@ -148,7 +170,7 @@ def run() -> None:
     bq = bigquery.Client(project=cfg.gcp_project)
     ensure_dataset(bq, cfg)
 
-    feed_bytes = download_feed(cfg.gtfs_url)
+    feed_bytes = fetch_feed(cfg)
     upload_raw_zip(gcs, cfg, feed_bytes)
 
     loaded, skipped = [], []
