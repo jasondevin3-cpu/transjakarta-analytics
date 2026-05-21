@@ -38,3 +38,4 @@ credentials*.json
 
 # Notebooks
 .ipynb_checkpoints/
+logs/
