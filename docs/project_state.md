@@ -92,14 +92,31 @@ End-to-end analytics project on publicly available **Transjakarta GTFS data**, b
 | transfers         | 14      |
 | feed_info         | (skipped — not in feed) |
 
-### Phase 2 — Modeling core (ready to start)
+### Phase 2 — Modeling core (in progress; batch 1 complete, 2026-05-22)
 
-Build `int_*` models (e.g. `int_trip_with_route`, `int_service_calendar_unrolled`), then `dim_stop`, `dim_route`, `dim_date`, `dim_service`, `fact_scheduled_trip`, `fact_scheduled_stop_event`. Aggressive test coverage.
+**Batch 1 — done (5 new models, all tests passing, PASS=71/71 on `dbt build`):**
 
-**Key modeling note from the live data:** TJ's feed uses `frequencies.txt` heavily (772 rows). Many trips in `trips.txt` are not literal scheduled departures — they're trip *patterns* paired with a frequency entry that says "this pattern runs every N seconds between HH:MM and HH:MM." `fact_scheduled_trip` will need to **expand** these into individual scheduled departures (one row per realized departure time) before downstream analyses can compute things like daily trip counts or headway distributions correctly. Plain `trips.txt` row counts will undercount actual service by orders of magnitude.
+| Model                       | Layer           | Materialization | Rows  | Notes                                                          |
+|-----------------------------|-----------------|-----------------|-------|----------------------------------------------------------------|
+| `stg_gtfs__frequencies`     | staging         | view            | 772   | Cleans + applies `gtfs_time_to_seconds` to start/end times     |
+| `stg_gtfs__calendar_dates`  | staging         | view            | 0     | Materialized for future-proofing; empty in current snapshot    |
+| `dim_date`                  | marts_core      | table           | 4,018 | Generated date spine 2020-01-01 → 2030-12-31                  |
+| `dim_route`                 | marts_core      | table           | 253   | Adds `service_category` from `route_desc` (BRT, Mikrotrans, …) |
+| `dim_stop`                  | marts_core      | table           | 8,216 | Decodes `location_type`, `wheelchair_boarding`; `is_station`   |
+
+**Batch 2 — pending (calendar logic):**
+- `int_service_calendar_unrolled` — unroll each service_id into one row per `(service_id × active_date)` by joining `stg_gtfs__calendar` against `dim_date` and applying the weekday mask. Layer on `stg_gtfs__calendar_dates` exceptions when they exist.
+- `dim_service` — friendly service dimension on top of the unrolled view (service_name like "Weekday — HK", date range, active-days count).
+
+**Batch 3 — pending (the gnarly one):**
+- `int_frequencies_expanded` — for each `stg_gtfs__frequencies` row, generate one row per realized departure using `GENERATE_ARRAY(start_seconds, end_seconds, headway_secs)` + `UNNEST`. Output grain: `(trip_id × departure_seconds_from_service_midnight)`.
+- `fact_scheduled_trip` — one row per realized scheduled trip (frequency-expanded trips ∪ exact-timetable trips), joined to `dim_route`, `dim_service`, `dim_date`.
+- `fact_scheduled_stop_event` — apex fact. One row per `(trip × stop × service_date)` combining `fact_scheduled_trip` with `stg_gtfs__stop_times`.
+
+**Key modeling note from the live data:** TJ's feed uses `frequencies.txt` heavily (772 rows). Many trips in `trips.txt` are not literal scheduled departures — they're trip *patterns* paired with a frequency entry that says "this pattern runs every N seconds between HH:MM and HH:MM." `fact_scheduled_trip` must **expand** these into individual departures, or downstream counts will undercount actual service by orders of magnitude.
 
 **Other things to address in this phase:**
-- The three "unused configuration paths" warnings (`models.transjakarta_analytics.marts.core`, `marts.presentation`, `intermediate`) will resolve themselves once Phase 2/3 models exist in those folders.
+- The remaining two "unused configuration paths" warnings (`marts.presentation`, `intermediate`) will resolve once Phase 2/3 models exist in those folders.
 
 ### Phase 3 — Presentation + open data (not started)
 
@@ -121,10 +138,16 @@ Looker Studio dashboard, `dbt/analyses/` SQL, README polish with screenshots, Li
   - `PropertyMovedToConfigDeprecation` — `freshness:` under sources should be nested under `config:` in newer dbt versions.
   - `MissingArgumentsPropertyInGenericTestDeprecation` (9 occurrences) — top-level arguments to generic tests (`dbt_expectations.expect_column_values_to_be_between`, `relationships`) should be nested under an `arguments:` key.
 
-- **TJ source schema observations worth knowing before Phase 2:**
-  - Only 7 service patterns in `calendar.txt` (`HK` = Hari Kerja/weekday, `HL` = Hari Libur/weekend, +5 more — likely Ramadan / special schedules; verify).
-  - `calendar_dates.txt` is empty in this snapshot — no holiday exceptions defined. `dim_service` can ignore exception logic for now but should be designed to absorb them if a future feed adds them.
+- **TJ source schema observations worth knowing for modeling:**
+  - Only 7 service patterns in `calendar.txt` (`HK` = Hari Kerja/weekday, `HL` = Hari Libur/weekend, +5 more — likely Ramadan / special schedules; verify when building `dim_service`).
+  - `calendar_dates.txt` is empty in this snapshot — no holiday exceptions defined. `dim_service` can ignore exception logic for now but should be designed to absorb them.
   - `route_id`s mix numeric (`"9"`) and alphanumeric (`"BW2"`, `"9-P23"`); autodetect correctly inferred STRING. Don't cast to INT64 anywhere downstream.
+  - All routes are `route_type=3` (Bus). The useful service segmentation is in `route_desc`, not `route_type`. `dim_route.service_category` exposes this.
+  - Stops split: 7,925 `location_type=0` (platforms) / 291 `location_type=1` (stations). `dim_stop.is_station` flags the latter.
+
+- **Empty CSVs break BigQuery autodetect.** When a GTFS file has only a header row (e.g. `calendar_dates.txt` in this snapshot), `autodetect=True` in `LoadJobConfig` produces a table *with no columns*, and every downstream `SELECT` fails with `Unrecognized name: <col>`. Fix: `ingestion/gtfs/loader.py` now has a `GTFS_EXPLICIT_SCHEMAS` registry. Tables listed there use a hardcoded `[SchemaField(...)]` instead of autodetecting. Currently only `calendar_dates` is registered; add others as needed.
+
+- **TJ encodes low-frequency services with extreme headway values.** `frequencies.headway_secs` is mostly in the 180–3600 range, but TJ also uses `86400` (24 hours = "one departure per day in this window"), `52700` (Bus Wisata tourist routes, ~14 hrs), and `21600`/`43200` (long-headway feeders). The `stg_gtfs__frequencies` headway range test is set to `[60, 86400]` to accept these. When building `int_frequencies_expanded`, the `GENERATE_ARRAY(start, end, headway)` call will produce just 1 row for the 24-hour-headway cases — that's the intended semantics.
 
 ---
 
@@ -141,7 +164,8 @@ Looker Studio dashboard, `dbt/analyses/` SQL, README polish with screenshots, Li
 - `dbt_transjakarta/dbt_project.yml` — dbt config (materialization defaults, schemas)
 - `dbt_transjakarta/profiles.yml` — local copy of BQ connection (gitignored); also copied to `~/.dbt/profiles.yml`
 - `dbt_transjakarta/packages.yml` — dbt deps
-- `dbt_transjakarta/models/staging/gtfs/` — five `stg_gtfs__*` models + sources + schema
+- `dbt_transjakarta/models/staging/gtfs/` — seven `stg_gtfs__*` models + sources + schema
+- `dbt_transjakarta/models/marts/core/` — three dim models (`dim_date`, `dim_route`, `dim_stop`) + `_core__models.yml`
 - `dbt_transjakarta/macros/gtfs_time_to_seconds.sql` — custom time-parsing macro
 - `gcp-service-account.json` — service-account key (gitignored)
 - `data/raw/` — drop zone for the manually-downloaded GTFS zip
