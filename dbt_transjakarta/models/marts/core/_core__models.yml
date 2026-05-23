@@ -79,6 +79,48 @@ models:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
 
+  - name: fact_scheduled_trip
+    description: |
+      One row per realized abstract scheduled trip — every
+      (trip_id × departure_time) the frequency-expansion produces.
+      Does NOT enumerate service dates; downstream fact_scheduled_stop_event
+      handles that. Denormalized route + service attributes are carried
+      for analyst convenience.
+    columns:
+      - name: scheduled_trip_id
+        description: Stable surrogate key (md5 hash of trip_id + departure_seconds).
+        data_tests:
+          - not_null
+          - unique
+      - name: trip_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs__trips')
+              field: trip_id
+      - name: route_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_route')
+              field: route_id
+      - name: service_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_service')
+              field: service_id
+      - name: departure_seconds_from_service_midnight
+        description: Seconds from service-day start. 0–86399 for same-day departures.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 172800   # 48h — generous, allows next-service-day overflow
+      - name: source_headway_seconds
+        data_tests:
+          - not_null
+
   - name: dim_stop
     description: |
       One row per stop with lat/lon and decoded location_type and
