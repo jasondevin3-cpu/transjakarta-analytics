@@ -107,3 +107,46 @@ models:
       - name: service_end_date
         data_tests:
           - not_null
+
+  - name: stg_gtfs__calendar_dates
+    description: |
+      Exceptions to the weekly service pattern (added/removed service days).
+      Empty in the current snapshot but materialized so dim_service can
+      absorb exceptions transparently when future feeds add them.
+    columns:
+      - name: service_id
+        data_tests:
+          - not_null
+      - name: exception_date
+        data_tests:
+          - not_null
+      - name: exception_type_name
+        data_tests:
+          - accepted_values:
+              values: ['added', 'removed', 'unknown']
+
+  - name: stg_gtfs__frequencies
+    description: |
+      Headway-based trip definitions. Each row says "trip X runs every
+      headway_seconds between start and end of service day." The marts
+      layer expands these into individual realized departures so
+      downstream counts and frequency stats are correct.
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs__trips')
+              field: trip_id
+      - name: headway_seconds
+        description: |
+          Interval between successive departures of a trip pattern.
+          TJ encodes some low-frequency services with very large headway
+          values — e.g. 86400 (= once per day) for special-purpose runs,
+          and 21600–52700 for long-window tourist or feeder routes.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 60       # 1 min minimum — anything lower is suspect
+              max_value: 86400    # 24 hours — TJ's "once-daily" encoding
+              row_condition: "headway_seconds is not null"

@@ -54,6 +54,18 @@ GTFS_TABLES: tuple[str, ...] = (
     "feed_info",
 )
 
+# Explicit schemas for tables that can be legitimately empty in a GTFS feed.
+# BigQuery's autodetect can't infer columns from a header-only CSV, so without
+# this the resulting table would have no columns and every downstream query
+# would fail with `Unrecognized name: <col>`.
+GTFS_EXPLICIT_SCHEMAS: dict[str, list[bigquery.SchemaField]] = {
+    "calendar_dates": [
+        bigquery.SchemaField("service_id", "STRING"),
+        bigquery.SchemaField("date", "STRING"),
+        bigquery.SchemaField("exception_type", "INT64"),
+    ],
+}
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -138,14 +150,17 @@ def upload_staged_csv(
 
 def load_csv_to_bq(bq: bigquery.Client, cfg: Config, table: str, gcs_uri: str) -> None:
     table_ref = f"{cfg.gcp_project}.{cfg.bq_dataset_raw}.{table}"
+    schema = GTFS_EXPLICIT_SCHEMAS.get(table)
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.CSV,
         skip_leading_rows=1,
-        autodetect=True,
+        autodetect=schema is None,   # explicit schema wins over autodetect
+        schema=schema,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         allow_quoted_newlines=True,
     )
-    log.info("Loading %s -> %s", gcs_uri, table_ref)
+    log.info("Loading %s -> %s%s", gcs_uri, table_ref,
+             " (explicit schema)" if schema else "")
     job = bq.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
     job.result()
     log.info("Loaded %s rows into %s", job.output_rows, table_ref)

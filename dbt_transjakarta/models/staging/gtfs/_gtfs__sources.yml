@@ -60,5 +60,16 @@ sources:
         description: Weekly service patterns with start/end date.
       - name: calendar_dates
         description: Exceptions to the weekly service pattern (added/removed dates).
+      - name: frequencies
+        description: |
+          Headway-based trip definitions. A trip in trips.txt that also
+          appears here is a trip *pattern* that runs every headway_secs
+          seconds between start_time and end_time, not a single departure.
+          The marts layer must expand these into individual realized trips
+          for any count or frequency analysis to be correct.
+        columns:
+          - name: trip_id
+            data_tests:
+              - not_null
       - name: shapes
         description: Polyline points for drawing route geometry on a map.

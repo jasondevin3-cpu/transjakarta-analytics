@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: |
+      Standard date dimension covering 2020-01-01 through 2030-12-31.
+      Generated from a date spine — not sourced from GTFS. Join any
+      fact's date column against `date_id` to slice by year, month,
+      quarter, day-of-week, or weekend flag.
+    columns:
+      - name: date_id
+        description: Calendar date. Primary key.
+        data_tests:
+          - not_null
+          - unique
+      - name: year
+        data_tests:
+          - not_null
+      - name: day_of_week
+        description: BigQuery convention — 1 = Sunday, 7 = Saturday.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7]
+              quote: false
+      - name: is_weekend
+        data_tests:
+          - not_null
+
+  - name: dim_route
+    description: |
+      One row per Transjakarta route. Pass-through of stg_gtfs__routes with
+      a derived `service_category` reflecting TJ's operational tiers
+      (BRT, Mikrotrans, Royaltrans, Transjabodetabek, Rusun, Shuttle,
+      Bus Wisata, Angkutan Umum Integrasi).
+    columns:
+      - name: route_id
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs__routes')
+              field: route_id
+      - name: route_type_name
+        data_tests:
+          - not_null
+      - name: service_category
+        description: TJ operational tier, derived from route_description.
+        data_tests:
+          - not_null
+
+  - name: dim_stop
+    description: |
+      One row per stop with lat/lon and decoded location_type and
+      wheelchair-boarding labels.
+    columns:
+      - name: stop_id
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs__stops')
+              field: stop_id
+      - name: stop_name
+        data_tests:
+          - not_null
+      - name: location_type_name
+        data_tests:
+          - accepted_values:
+              values: ['stop_or_platform', 'station', 'entrance_or_exit',
+                       'generic_node', 'boarding_area', 'unknown']
+      - name: stop_latitude
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -7.0
+              max_value: -5.0
+              row_condition: "stop_latitude is not null"
+      - name: stop_longitude
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 106.0
+              max_value: 107.5
+              row_condition: "stop_longitude is not null"
