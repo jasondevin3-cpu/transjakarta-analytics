@@ -121,6 +121,51 @@ models:
         data_tests:
           - not_null
 
+  - name: fact_scheduled_stop_event
+    description: |
+      Apex fact of the model. One row per scheduled stop visit for every
+      realized scheduled trip — i.e., every (scheduled_trip × stop_sequence)
+      pair. Built from fact_scheduled_trip × int_stop_times_with_offsets.
+      ~2.6M rows for TJ. This is the queryable surface for every
+      stop-level analytical question (busiest stops, peak-hour density,
+      headway distributions, etc.).
+    columns:
+      - name: scheduled_stop_event_id
+        description: Stable surrogate key (md5 of scheduled_trip_id + stop_sequence).
+        data_tests:
+          - not_null
+          - unique
+      - name: scheduled_trip_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('fact_scheduled_trip')
+              field: scheduled_trip_id
+      - name: trip_id
+        data_tests:
+          - not_null
+      - name: route_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_route')
+              field: route_id
+      - name: stop_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: stop_sequence
+        data_tests:
+          - not_null
+      - name: arrival_seconds_from_service_midnight
+        data_tests:
+          - not_null
+      - name: departure_seconds_from_service_midnight
+        data_tests:
+          - not_null
+
   - name: dim_stop
     description: |
       One row per stop with lat/lon and decoded location_type and

@@ -16,11 +16,11 @@ clean-targets:
   - "dbt_packages"
 
 # Naming convention:
-#   stg_*    staging        (views, 1:1 with raw, light cleaning)
-#   int_*    intermediate   (views, business logic, ephemeral by default)
-#   dim_*    dimension      (tables in marts.core)
-#   fact_*   fact           (tables in marts.core)
-#   report_* presentation   (tables in marts.presentation)
+#   stg_*           staging        (views, 1:1 with raw, light cleaning)
+#   int_*           intermediate   (views, business logic, ephemeral by default)
+#   dim_*           dimension      (tables in marts.core)
+#   fact_*          fact           (tables in marts.core)
+#   presentation_*  presentation   (denormalized wide tables in marts.presentation)
 models:
   transjakarta_analytics:
     staging:

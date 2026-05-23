@@ -41,7 +41,7 @@ End-to-end analytics project on publicly available **Transjakarta GTFS data**, b
 | `int_`     | intermediate   | ephemeral       | reusable business logic, not exposed        |
 | `dim_`     | marts.core     | table           | conformed dimensions                        |
 | `fact_`    | marts.core     | table           | conformed facts (full word, not `fct_`)     |
-| `report_`  | marts.pres.    | table           | denormalized analyst-facing wide tables     |
+| `presentation_` | marts.pres. | table           | denormalized analyst-facing wide tables     |
 
 ## Architectural decisions (with rationale)
 
