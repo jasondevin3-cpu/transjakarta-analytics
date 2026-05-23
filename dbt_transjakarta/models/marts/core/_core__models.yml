@@ -49,6 +49,36 @@ models:
         data_tests:
           - not_null
 
+  - name: dim_service
+    description: |
+      One row per service_id, with a derived `service_name` (Daily,
+      Weekday, Weekend, Friday only, etc.), the calendar window from
+      calendar.txt, and computed active-day stats from
+      int_service_calendar_unrolled — which applies calendar_dates
+      exceptions when present. `active_days_count` will be 0 for any
+      service whose calendar window falls entirely outside dim_date's
+      range (e.g. TJ's "X" service from 2005).
+    columns:
+      - name: service_id
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs__calendar')
+              field: service_id
+      - name: service_name
+        data_tests:
+          - not_null
+      - name: service_start_date
+        data_tests:
+          - not_null
+      - name: active_days_count
+        description: Number of distinct active dates within dim_date's window.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+
   - name: dim_stop
     description: |
       One row per stop with lat/lon and decoded location_type and
