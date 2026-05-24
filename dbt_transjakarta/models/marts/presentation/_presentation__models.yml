@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: presentation_route_summary
+    description: |
+      One row per route with template-level KPIs (no date expansion):
+      distinct trip patterns, abstract daily departures, stops served,
+      service-day windows, headway stats. Drives the "browse routes"
+      page on the dashboard.
+    columns:
+      - name: route_id
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_route')
+              field: route_id
+      - name: route_short_name
+        data_tests:
+          - not_null
+      - name: service_category
+        data_tests:
+          - not_null
+      - name: abstract_departures_count
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+      - name: distinct_stops_served
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+
+  - name: presentation_daily_stop_arrivals
+    description: |
+      One row per (service_date × stop_id), with total scheduled
+      arrivals at that stop on that *clock* date. Hours 24+ are
+      shifted into the following date — so "Tuesday's arrivals"
+      reflects what actually happens during Tuesday's calendar hours.
+      Drives "busiest stops" maps and per-stop trend visualizations.
+    columns:
+      - name: service_date
+        description: Calendar (clock) date — already shifted for hours 24+.
+        data_tests:
+          - not_null
+      - name: stop_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: arrivals_count
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - service_date
+            - stop_id
+
+  - name: presentation_hourly_network_density
+    description: |
+      One row per (service_date × hour_of_day × service_category),
+      with network-wide scheduled arrival counts. Hours 24+ shifted
+      to the next clock date and modulo'd to 0-23. Drives the
+      network-wide hourly time-series chart on the dashboard.
+    columns:
+      - name: service_date
+        data_tests:
+          - not_null
+      - name: hour_of_day
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+                       13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+              quote: false
+      - name: service_category
+        data_tests:
+          - not_null
+      - name: arrivals_count
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - service_date
+            - hour_of_day
+            - service_category
