@@ -118,19 +118,35 @@ Layer breakdown of what's now in `dbt_dev_jason_*`:
 - Top 10 busiest stops by scheduled arrivals (Tanah Abang, Cawang Sentral, etc. — known major interchanges)
 - Bundaran HI per-hour arrival histogram — flat ~100/hr from 6am–10pm, plus hours 24 and 25 appearing as expected (see new gotcha)
 
-### Phase 3 — Presentation + open data (ready to start)
+### Phase 3 — Presentation marts (complete; open data descoped — see below)
 
 Naming convention now uses `presentation_*` (not `report_*`) for the wide denormalized tables in `marts.presentation`.
 
-Work for this phase:
-- Populate `ingestion/jakarta_open_data/datasets.yml` registry; ingest at least one open-data dataset to enrich GTFS-only model (ridership counts? bus depots? something joinable).
-- Build `presentation_*` marts — pre-joined wide tables for Looker Studio. Candidates: `presentation_daily_stop_arrivals`, `presentation_route_summary`, `presentation_hourly_network_density`.
-- Wire up GitHub Actions: scheduled ingestion + dbt CI (parse, build, test on PRs).
+**Batch 1 — presentation marts (complete, 2026-05-24, commit `4ec4241`):**
+
+Three `presentation_*` models built and committed in `models/marts/presentation/`, each with a `_presentation__models.yml` test suite (not_null, unique/relationships, dbt_expectations ranges, dbt_utils.unique_combination_of_columns):
+
+| Model                              | Grain                                          | Expected rows | Notes                                                                                          |
+|------------------------------------|------------------------------------------------|---------------|------------------------------------------------------------------------------------------------|
+| `presentation_route_summary`       | (route_id)                                     | ~253          | Template-level KPIs, no date expansion. Distinct trips/services, abstract departures, stops served, headway stats, service-window hours. |
+| `presentation_daily_stop_arrivals` | (service_date × stop_id)                       | ~18M          | Clock-date arrivals per stop. Hours 24+ shifted into the next clock date.                       |
+| `presentation_hourly_network_density` | (service_date × hour_of_day × service_category) | ~576k max  | Network-wide hourly time series. Hours 24+ shifted to next date and modulo'd to 0–23.           |
+
+All three use the same **template → expand → re-aggregate** pattern: pre-aggregate the 3M-row apex fact (`fact_scheduled_stop_event`) to a small per-(service × …) template, cross-join `int_service_calendar_unrolled` to enumerate realized dates, then re-aggregate to the final grain. This keeps BigQuery scan/cost down by avoiding a cross-join against the full fact. Worth calling out as a design decision in the README / interviews.
+
+**Scope decision (2026-06-20): GTFS-only.**
+
+Jakarta open-data ingestion is **descoped** — moved out of the project, not just deferred. Rationale: the Jakarta portals (`data.jakarta.go.id` → `satudata.jakarta.go.id`) are now JavaScript SPAs whose CSV exports sit behind token-gated URLs (a rotating `secret_key`), so there is no stable link to drive automated ingestion. That branch added external fragility and complexity for marginal analytical payoff. The GTFS-only pipeline is a complete, defensible analytics-engineering portfolio on its own. `ingestion/jakarta_open_data/` stays in the repo as a working skeleton (and a talking point about *why* it was scoped out), but `datasets.yml` remains empty by design.
+
+GitHub Actions nightly ingestion + freshness gating is also **descoped** for now (it only made sense paired with a live external source). A lightweight "build + test on PR" CI remains an optional nice-to-have, not a requirement for done.
+
+**Remaining work to "done" (GTFS-only):**
 - Deploy dbt docs to GitHub Pages — the headline portfolio artifact.
+- One or two analysis queries in `analysis/queries/` that surface a real insight from the GTFS marts (busiest corridors, hourly network density, service-window coverage), plus README polish with the insight and a screenshot. Optional: a small Looker Studio dashboard on the `presentation_*` marts.
 
 ### Phase 4 — Storytelling (not started)
 
-Looker Studio dashboard, `dbt/analyses/` SQL, README polish with screenshots, LinkedIn post.
+`analysis/queries/` SQL, README polish with screenshots, optional Looker Studio dashboard, LinkedIn post.
 
 ---
 
@@ -138,7 +154,7 @@ Looker Studio dashboard, `dbt/analyses/` SQL, README polish with screenshots, Li
 
 - **dbt doesn't read `.env` automatically.** `python-dotenv` is a Python library; dbt only reads OS-level environment variables. Before running `dbt build`/`run`/`test` in a fresh terminal, run `set -a; source ../.env; set +a` from inside `dbt_transjakarta/` so `GCP_PROJECT_ID` (and any other config vars in `.env`) are exported into the shell. Without this, `_gtfs__sources.yml`'s `env_var('GCP_PROJECT_ID', 'your-gcp-project-id')` falls back to the placeholder and every test / model errors with `Access Denied: Table your-gcp-project-id:raw_gtfs.*`.
 
-- **No `requirements.txt` exists yet.** The `.venv` was set up ad-hoc; first run after a fresh clone failed with `ModuleNotFoundError: No module named 'dotenv'`. Phase-2 cleanup: pin actual installed versions into a `requirements.txt` (or `pyproject.toml`) so the next person can `pip install -r requirements.txt` and have everything work. Current confirmed-needed packages: `requests`, `python-dotenv`, `google-cloud-bigquery>=3.0`, `google-cloud-storage>=2.0`, `pandas`, `dbt-bigquery` (pulls in `dbt-core`), `sqlfluff`.
+- **Dependency pinning is partial.** Ingestion deps are now pinned in `ingestion/pyproject.toml` (`google-cloud-storage`, `google-cloud-bigquery`, `pandas`, `pyarrow`, `requests`, `python-dotenv`; plus `ruff`/`pytest` under `[dev]`). **Still unpinned:** the dbt/dev toolchain (`dbt-bigquery` → pulls `dbt-core`, `sqlfluff`). A fresh clone still can't reproduce the dbt environment from a manifest. Next cleanup: add a `requirements.txt` or a dbt-side `pyproject.toml` so `dbt build` works after a clean clone.
 
 - **Cosmetic dbt deprecation warnings (still passing tests; address opportunistically):**
   - `PropertyMovedToConfigDeprecation` — `freshness:` under sources should be nested under `config:` in newer dbt versions.
@@ -175,7 +191,7 @@ Looker Studio dashboard, `dbt/analyses/` SQL, README polish with screenshots, Li
 - `dbt_transjakarta/models/staging/gtfs/` — seven `stg_gtfs__*` models + sources + schema
 - `dbt_transjakarta/models/intermediate/` — three ephemeral `int_*` models (`service_calendar_unrolled`, `frequencies_expanded`, `stop_times_with_offsets`)
 - `dbt_transjakarta/models/marts/core/` — four dims (`dim_date`, `dim_route`, `dim_stop`, `dim_service`) + two facts (`fact_scheduled_trip`, `fact_scheduled_stop_event`) + `_core__models.yml`
-- `dbt_transjakarta/models/marts/presentation/` — empty until Phase 3 (will hold `presentation_*` denormalized wide tables)
+- `dbt_transjakarta/models/marts/presentation/` — three `presentation_*` denormalized wide tables (`route_summary`, `daily_stop_arrivals`, `hourly_network_density`) + `_presentation__models.yml` (Phase 3 batch 1)
 - `dbt_transjakarta/macros/gtfs_time_to_seconds.sql` — custom time-parsing macro
 - `gcp-service-account.json` — service-account key (gitignored)
 - `data/raw/` — drop zone for the manually-downloaded GTFS zip

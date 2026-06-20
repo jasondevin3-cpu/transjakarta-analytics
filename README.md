@@ -8,43 +8,61 @@ This project stack covers the full data lifecycle: Python ingestion into Google 
 
 ---
 
+## Key findings
+
+Two headline reads from the modeled schedule (every query below is reproducible as a dbt analysis in [`dbt_transjakarta/analyses/`](dbt_transjakarta/analyses)).
+
+**The busiest corridors are exactly the iconic trunk routes — a clean validation of the model.** Ranking BRT corridors by *scheduled departures per service day* puts Corridor 8 (Lebak Bulus–Pasar Baru) on top, followed by the other well-known backbones:
+
+| Rank | Corridor | Route | Scheduled departures / day | Stops served | Avg headway |
+|------|----------|-------|---------------------------:|-------------:|------------:|
+| 1 | 8 | Lebak Bulus – Pasar Baru | 1,609 | 52 | 12.5 min |
+| 2 | 9 | Pinang Ranti – Pluit | 1,495 | 50 | 8.8 min |
+| 3 | 1 | Blok M – Kota | 1,337 | 43 | 15.1 min |
+| 4 | 10 | Tanjung Priok – PGC | 1,154 | 42 | 6.2 min |
+| 5 | 3 | Kalideres – Monas | 1,032 | 31 | 10.8 min |
+
+**Transjakarta schedules a flat, all-day level of service — with no weekday/weekend distinction.** Network-wide scheduled arrivals ramp from ~71k/hour at 5am to a remarkably constant **~167k/hour plateau that holds from 7am to 9pm**, then wind down by midnight. Weekday and weekend profiles are nearly identical (9am: 168,052 vs 167,746). In other words, the *timetable* commits a steady supply across the whole operating day rather than intensifying for rush hour. That makes ridership (actual demand) the natural next data layer to overlay — the question "where does flat supply meet peaky demand?" is exactly what this model is built to answer next.
+
+---
+
 ## Architecture
 
 ```
         ┌──────────────────────────┐
-        │  GTFS feed (.zip)        │   ┌───────────────────────────────┐
-        │  Jakarta open data CSV/  │   │  data.jakarta.go.id           │
-        │  Excel downloads         │   └────────────┬──────────────────┘
-        └────────────┬─────────────┘                │
-                     │                              │
-                     ▼                              ▼
+        │  GTFS feed (.zip)        │
+        │  manual snapshot         │
+        └────────────┬─────────────┘
+                     │
+                     ▼
         ┌──────────────────────────────────────────────────────────┐
         │  Python ingestion (ingestion/)                           │
-        │   - Downloads + unzips GTFS                              │
+        │   - Reads + unzips GTFS                                  │
         │   - Archives raw files to GCS                            │
-        │   - Loads each table into BigQuery raw_* datasets        │
+        │   - Loads each table into BigQuery raw_gtfs.*            │
         └────────────────────────┬─────────────────────────────────┘
                                  │
                                  ▼
         ┌──────────────────────────────────────────────────────────┐
         │  BigQuery (asia-southeast2)                              │
         │   raw_gtfs.*           ── 1:1 mirror of latest feed      │
-        │   raw_jakarta_open_data.*                                │
         │                                                          │
         │   staging.stg_*        ── views, cleaned + typed         │
         │   intermediate.int_*   ── ephemeral, business logic      │
-        │   marts_core.dim_*, fact_*    ── conformed fact/dim      │
-        │   marts_presentation.report_* ── analyst-facing wide     │
+        │   marts_core.dim_*, fact_*        ── conformed fact/dim  │
+        │   marts_presentation.presentation_* ── analyst-facing    │
         └────────────────────────┬─────────────────────────────────┘
                                  │
                                  ▼
         ┌──────────────────────────────────────────────────────────┐
-        │  dbt docs (GitHub Pages) + Looker Studio dashboard       │
+        │  dbt docs (GitHub Pages)                                 │
         │  + analyses/ folder of headline SQL queries              │
         └──────────────────────────────────────────────────────────┘
 ```
 
 GCS also archives every raw snapshot (`gs://{bucket}/gtfs/raw/{snapshot_date}/feed.zip`), so any historical state can be reproduced.
+
+> **Scope note.** An earlier plan included ingesting Jakarta open-data CSVs (e.g. ridership) to enrich the GTFS models. That was descoped: the Jakarta portals are now JavaScript single-page apps whose exports sit behind rotating token URLs, with no stable link for automated ingestion. The `ingestion/jakarta_open_data/` loader remains in the repo as a working, registry-driven skeleton. This keeps the project GTFS-only — a complete pipeline without an unstable external dependency.
 
 ---
 
@@ -73,15 +91,14 @@ transjakarta-analytics/
 │   │   ├── staging/gtfs/        # stg_gtfs__*  (views)
 │   │   ├── intermediate/        # int_*        (ephemeral)
 │   │   └── marts/
-│   │       ├── core/            # dim_*, fact_*  (tables)
-│   │       └── presentation/    # report_*       (tables)
+│   │       ├── core/            # dim_*, fact_*       (tables)
+│   │       └── presentation/    # presentation_*      (tables)
 │   ├── macros/
 │   ├── seeds/
 │   ├── snapshots/
 │   ├── tests/
 │   └── analyses/                # headline analytical SQL (compiled, not materialized)
-├── analysis/queries/            # ad-hoc exploration outside dbt
-└── .github/workflows/           # CI + scheduled ingest (added in Phase 3)
+└── analysis/queries/            # ad-hoc exploration outside dbt
 ```
 
 ### Naming convention
@@ -92,7 +109,7 @@ transjakarta-analytics/
 | `int_`     | intermediate   | ephemeral       | reusable business logic, not exposed          |
 | `dim_`     | marts (core)   | table           | conformed dimensions                          |
 | `fact_`    | marts (core)   | table           | conformed facts                               |
-| `report_`  | marts (pres.)  | table           | denormalized, analyst-facing wide tables      |
+| `presentation_` | marts (pres.) | table        | denormalized, analyst-facing wide tables      |
 
 ---
 
@@ -142,10 +159,10 @@ dbt docs serve
 
 ## Roadmap
 
-- **Phase 1 — Foundations.** GCP setup, GTFS ingestion, dbt project skeleton, staging models with tests. *(this phase)*
-- **Phase 2 — Modeling core.** Intermediate models, `dim_*` and `fact_*` in `marts_core`, full test coverage with `dbt_utils` and `dbt_expectations`.
-- **Phase 3 — Presentation + open data.** Jakarta open-data ingestion, `report_*` marts, GitHub Actions for scheduled ingest + CI, dbt docs deployed to GitHub Pages.
-- **Phase 4 — Storytelling.** Looker Studio dashboard, headline analyses in `dbt/analyses/`, polished README with insights, LinkedIn post.
+- **Phase 1 — Foundations.** ✅ GCP setup, GTFS ingestion, dbt project skeleton, staging models with tests.
+- **Phase 2 — Modeling core.** ✅ Intermediate models, `dim_*` and `fact_*` in `marts_core`, full test coverage with `dbt_utils` and `dbt_expectations`.
+- **Phase 3 — Presentation marts.** ✅ Three `presentation_*` wide tables in `marts_presentation` (route summary, daily stop arrivals, hourly network density), each with a test suite. *(Jakarta open-data ingestion was descoped — see the scope note above.)*
+- **Phase 4 — Storytelling.** Headline analyses in `dbt_transjakarta/analyses/` and README insights ✅; dbt docs deployed to GitHub Pages and an optional Looker Studio dashboard *(in progress)*.
 
 ---
 

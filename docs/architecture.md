@@ -21,7 +21,7 @@ The ephemeral materialization for intermediate models keeps the surface area of 
 
 ## Data freshness
 
-GTFS static feeds change infrequently (typically when routes or schedules are modified — every few weeks at most). Ingestion runs nightly via GitHub Actions (added in Phase 3); `dbt source freshness` warns if the latest feed is more than 8 days old and errors after 30 days.
+GTFS static feeds change infrequently (typically when routes or schedules are modified — every few weeks at most). The feed is ingested as a **manual snapshot**: the official source is form-gated, so the zip is downloaded by hand and the loader reads it via `GTFS_LOCAL_ZIP`. Automated nightly ingestion via GitHub Actions was considered but descoped (it only paid off alongside a live external source); `dbt source freshness` thresholds remain defined in the source config for whenever a feed is refreshed.
 
 ## Testing strategy
 
@@ -30,4 +30,4 @@ Three layers of tests:
 2. **Domain-level** via `dbt_expectations` — for example, that all stop latitudes fall inside Jakarta's bounding box.
 3. **Custom singular tests** in `dbt_transjakarta/tests/` for cross-model invariants that don't fit a generic test.
 
-Tests run on every PR via GitHub Actions and gate merges to `main`.
+Tests run locally via `dbt build`. A lightweight "parse + build + test on PR" GitHub Actions check is an optional future add; it is not currently wired up.
