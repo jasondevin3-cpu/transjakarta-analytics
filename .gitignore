@@ -39,3 +39,6 @@ credentials*.json
 # Notebooks
 .ipynb_checkpoints/
 logs/
+
+# Private study guide — personal notes, never publish
+docs/study_guide.md
