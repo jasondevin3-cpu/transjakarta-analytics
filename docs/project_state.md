@@ -140,13 +140,22 @@ Jakarta open-data ingestion is **descoped** — moved out of the project, not ju
 
 GitHub Actions nightly ingestion + freshness gating is also **descoped** for now (it only made sense paired with a live external source). A lightweight "build + test on PR" CI remains an optional nice-to-have, not a requirement for done.
 
-**Remaining work to "done" (GTFS-only):**
-- Deploy dbt docs to GitHub Pages — the headline portfolio artifact.
-- One or two analysis queries in `analysis/queries/` that surface a real insight from the GTFS marts (busiest corridors, hourly network density, service-window coverage), plus README polish with the insight and a screenshot. Optional: a small Looker Studio dashboard on the `presentation_*` marts.
+**Batch 2 — storytelling + publish (complete, 2026-06-20):**
 
-### Phase 4 — Storytelling (not started)
+The GTFS-only project reached a complete, publishable v1 this session:
+- **Repo is public:** https://github.com/jasondevin3-cpu/transjakarta-analytics (commits `5744893` descope + analyses + README findings, `37629bb` Pages publish).
+- **dbt docs site is live:** https://jasondevin3-cpu.github.io/transjakarta-analytics/ — served via GitHub Pages from `main` → `/docs` (`docs/index.html` is the `dbt docs generate --static` single-file output; `docs/.nojekyll` stops Jekyll from mangling it). **To refresh the site:** re-run `dbt docs generate --static` inside `dbt_transjakarta/`, then `cp target/static_index.html ../docs/index.html`, commit, push. Pages redeploys automatically.
+- **Two dbt analyses added** in `dbt_transjakarta/analyses/` (compiled, not materialized): `busiest_corridors_by_scheduled_supply.sql` and `network_pulse_by_hour.sql`. Run them with `dbt show --inline "<sql>"` (note: `dbt show -s analysis:<name>` does NOT work — analyses have no run selector; either inline the SQL or compile + paste from `target/compiled/...`).
+- **README now leads with a "Key findings" section** built on real query output: Corridor 8/9/1/10/3 top the scheduled-supply ranking; network-wide scheduled arrivals hold a flat ~167k/hr plateau 7am–9pm with **no weekday/weekend difference** (the timetable commits constant all-day supply — a clean setup for why ridership/demand would be the natural next data layer).
 
-`analysis/queries/` SQL, README polish with screenshots, optional Looker Studio dashboard, LinkedIn post.
+### Ongoing — iteration expected (this is a living project, NOT frozen)
+
+**Note for future sessions:** Jason intends to keep iterating on this project himself, **especially on the query / business-logic side** — refining the analyses, adding new ones, adjusting mart logic and definitions as his understanding of the data deepens. Treat the current marts and analyses as a solid v1 baseline, not a finished spec. Expect changes to: analysis SQL in `analyses/`, the `presentation_*` mart definitions, headway/service-window/service-category business rules, and possibly the grain or columns of the marts. When picking up, ask Jason what he wants to change rather than assuming the current logic is fixed.
+
+**Candidate future directions (his call, not committed):**
+- Deepen the analyses: service-window coverage by corridor, headway-reliability, stop-level density hotspots, geographic clustering of stops.
+- Revisit business logic: validate `service_category` derivation, headway edge cases, the hour-24+ service-day-overflow handling per use case.
+- Optional polish: a Looker Studio dashboard on the `presentation_*` marts, a `requirements.txt` for the dbt toolchain, a lightweight "build + test on PR" GitHub Action, a LinkedIn write-up.
 
 ---
 
