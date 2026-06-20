@@ -4,7 +4,7 @@ An end-to-end analytics project on publicly available **Transjakarta** transit d
 
 This project stack covers the full data lifecycle: Python ingestion into Google Cloud Storage and BigQuery, dimensional modeling in dbt with a staging → intermediate → marts layered architecture, and an analysis optimized presentation tables that enable reporting dashboards and data analysis.
 
-> **Portfolio context.** This repository is a public portfolio piece intended to demonstrate analytics-engineering, BI, and data-analyst skills end-to-end. The published [dbt docs site](#) (link added after deployment) is the primary deliverable — see the lineage graph, model descriptions, and test coverage.
+> **Portfolio context.** This repository is a public portfolio piece intended to demonstrate analytics-engineering, BI, and data-analyst skills end-to-end. The published [dbt docs site](https://jasondevin3-cpu.github.io/transjakarta-analytics/) is the primary deliverable — see the lineage graph, model descriptions, and test coverage.
 
 ---
 
