@@ -43,3 +43,4 @@ logs/
 # Private study guide — personal notes, never publish
 docs/study_guide.md
 .venv-1/
+docs/session_summary.md
