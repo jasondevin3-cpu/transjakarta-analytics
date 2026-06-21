@@ -13,26 +13,26 @@
 -- Materialization: ephemeral (per intermediate config in dbt_project.yml).
 -- Expected size: ~23k rows for TJ's 772 frequency entries.
 
-with frequencies as (
-    select * from {{ ref('stg_gtfs__frequencies') }}
+WITH frequencies AS (
+    SELECT * FROM {{ ref('stg_gtfs__frequencies') }}
 ),
 
-expanded as (
-    select
+expanded AS (
+    SELECT
         f.trip_id,
-        departure_seconds                       as departure_seconds_from_service_midnight,
-        f.start_seconds_from_service_midnight   as window_start_seconds,
-        f.end_seconds_from_service_midnight     as window_end_seconds,
-        f.headway_seconds                       as source_headway_seconds,
+        departure_seconds AS departure_seconds_from_service_midnight,
+        f.start_seconds_from_service_midnight AS window_start_seconds,
+        f.end_seconds_from_service_midnight AS window_end_seconds,
+        f.headway_seconds AS source_headway_seconds,
         f.is_exact_times
-    from frequencies f,
-    unnest(
-        generate_array(
+    FROM frequencies f,
+    UNNEST(
+        GENERATE_ARRAY(
             f.start_seconds_from_service_midnight,
             f.end_seconds_from_service_midnight - 1,
             f.headway_seconds
         )
-    ) as departure_seconds
+    ) AS departure_seconds
 )
 
-select * from expanded
+SELECT * FROM expanded

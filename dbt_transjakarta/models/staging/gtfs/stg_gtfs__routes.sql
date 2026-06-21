@@ -1,32 +1,32 @@
-with source as (
-    select * from {{ source('raw_gtfs', 'routes') }}
+WITH source AS (
+    SELECT * FROM {{ source('raw_gtfs', 'routes') }}
 ),
 
-renamed as (
-    select
-        cast(route_id as string)         as route_id,
-        cast(agency_id as string)        as agency_id,
-        cast(route_short_name as string) as route_short_name,
-        cast(route_long_name as string)  as route_long_name,
-        cast(route_desc as string)       as route_description,
-        cast(route_type as int64)        as route_type_code,
-        case cast(route_type as int64)
-            when 0 then 'tram'
-            when 1 then 'subway'
-            when 2 then 'rail'
-            when 3 then 'bus'
-            when 4 then 'ferry'
-            when 5 then 'cable_tram'
-            when 6 then 'aerial_lift'
-            when 7 then 'funicular'
-            when 11 then 'trolleybus'
-            when 12 then 'monorail'
-            else 'unknown'
-        end                              as route_type_name,
-        cast(route_url as string)        as route_url,
-        cast(route_color as string)      as route_color_hex,
-        cast(route_text_color as string) as route_text_color_hex
-    from source
+renamed AS (
+    SELECT
+        CAST(route_id AS STRING) AS route_id,
+        CAST(agency_id AS STRING) AS agency_id,
+        CAST(route_short_name AS STRING) AS route_short_name,
+        CAST(route_long_name AS STRING) AS route_long_name,
+        CAST(route_desc AS STRING) AS route_description,
+        CAST(route_type AS INT64) AS route_type_code,
+        CASE CAST(route_type AS INT64)
+            WHEN 0 THEN 'tram'
+            WHEN 1 THEN 'subway'
+            WHEN 2 THEN 'rail'
+            WHEN 3 THEN 'bus'
+            WHEN 4 THEN 'ferry'
+            WHEN 5 THEN 'cable_tram'
+            WHEN 6 THEN 'aerial_lift'
+            WHEN 7 THEN 'funicular'
+            WHEN 11 THEN 'trolleybus'
+            WHEN 12 THEN 'monorail'
+            ELSE 'unknown'
+        END AS route_type_name,
+        CAST(route_url AS STRING) AS route_url,
+        CAST(route_color AS STRING) AS route_color_hex,
+        CAST(route_text_color AS STRING) AS route_text_color_hex
+    FROM source
 )
 
-select * from renamed
+SELECT * FROM renamed

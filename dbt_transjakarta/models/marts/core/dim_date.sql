@@ -3,27 +3,27 @@
 -- Range: 2020-01-01 through 2030-12-31 (covers the GTFS calendar's window
 -- with comfortable headroom on both ends).
 
-with date_spine as (
-    select day as date_id
-    from unnest(generate_date_array(date '2020-01-01', date '2030-12-31')) as day
+WITH date_spine AS (
+    SELECT day AS date_id
+    FROM UNNEST(GENERATE_DATE_ARRAY(DATE '2020-01-01', DATE '2030-12-31')) AS day
 ),
 
-final as (
-    select
+final AS (
+    SELECT
         date_id,
-        extract(year     from date_id) as year,
-        extract(quarter  from date_id) as quarter,
-        extract(month    from date_id) as month,
-        extract(day      from date_id) as day_of_month,
-        extract(dayofweek from date_id) as day_of_week,  -- BigQuery: 1=Sunday, 7=Saturday
-        format_date('%A', date_id)     as day_name,
-        format_date('%a', date_id)     as day_name_short,
-        format_date('%B', date_id)     as month_name,
-        format_date('%b', date_id)     as month_name_short,
-        extract(isoweek  from date_id) as iso_week_number,
-        format_date('%Y-%m', date_id)  as year_month,
-        extract(dayofweek from date_id) in (1, 7) as is_weekend
-    from date_spine
+        EXTRACT(YEAR FROM date_id) AS year,
+        EXTRACT(QUARTER FROM date_id) AS quarter,
+        EXTRACT(MONTH FROM date_id) AS month,
+        EXTRACT(DAY FROM date_id) AS day_of_month,
+        EXTRACT(DAYOFWEEK FROM date_id) AS day_of_week,  -- BigQuery: 1=Sunday, 7=Saturday
+        FORMAT_DATE('%A', date_id) AS day_name,
+        FORMAT_DATE('%a', date_id) AS day_name_short,
+        FORMAT_DATE('%B', date_id) AS month_name,
+        FORMAT_DATE('%b', date_id) AS month_name_short,
+        EXTRACT(ISOWEEK FROM date_id) AS iso_week_number,
+        FORMAT_DATE('%Y-%m', date_id) AS year_month,
+        EXTRACT(DAYOFWEEK FROM date_id) IN (1, 7) AS is_weekend
+    FROM date_spine
 )
 
-select * from final
+SELECT * FROM final

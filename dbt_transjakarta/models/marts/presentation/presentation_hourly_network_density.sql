@@ -13,41 +13,41 @@
 -- Grain: (service_date × hour_of_day × service_category).
 -- Expected size: ~576k rows max (3000 dates × 24 hours × 8 categories).
 
-with arrival_template as (
-    select
+WITH arrival_template AS (
+    SELECT
         e.service_id,
         r.service_category,
-        mod(div(e.arrival_seconds_from_service_midnight, 3600), 24) as hour_of_day,
-        case when e.arrival_seconds_from_service_midnight >= 86400
-             then 1 else 0 end                                       as next_day_offset,
-        count(*) as arrivals_count
-    from {{ ref('fact_scheduled_stop_event') }} e
-    join {{ ref('dim_route') }} r using (route_id)
-    group by e.service_id, r.service_category, hour_of_day, next_day_offset
+        MOD(DIV(e.arrival_seconds_from_service_midnight, 3600), 24) AS hour_of_day,
+        CASE WHEN e.arrival_seconds_from_service_midnight >= 86400
+             THEN 1 ELSE 0 END AS next_day_offset,
+        COUNT(*) AS arrivals_count
+    FROM {{ ref('fact_scheduled_stop_event') }} e
+    JOIN {{ ref('dim_route') }} r USING (route_id)
+    GROUP BY e.service_id, r.service_category, hour_of_day, next_day_offset
 ),
 
-active_dates as (
-    select * from {{ ref('int_service_calendar_unrolled') }}
+active_dates AS (
+    SELECT * FROM {{ ref('int_service_calendar_unrolled') }}
 ),
 
-expanded as (
-    select
-        date_add(d.service_date, interval t.next_day_offset day) as clock_date,
+expanded AS (
+    SELECT
+        DATE_ADD(d.service_date, INTERVAL t.next_day_offset DAY) AS clock_date,
         t.hour_of_day,
         t.service_category,
         t.arrivals_count
-    from arrival_template t
-    inner join active_dates d using (service_id)
+    FROM arrival_template t
+    INNER JOIN active_dates d USING (service_id)
 ),
 
-final as (
-    select
-        clock_date as service_date,
+final AS (
+    SELECT
+        clock_date AS service_date,
         hour_of_day,
         service_category,
-        sum(arrivals_count) as arrivals_count
-    from expanded
-    group by clock_date, hour_of_day, service_category
+        SUM(arrivals_count) AS arrivals_count
+    FROM expanded
+    GROUP BY clock_date, hour_of_day, service_category
 )
 
-select * from final
+SELECT * FROM final

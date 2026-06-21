@@ -1,9 +1,9 @@
-with source as (
-    select * from {{ ref('stg_gtfs__stops') }}
+WITH source AS (
+    SELECT * FROM {{ ref('stg_gtfs__stops') }}
 ),
 
-final as (
-    select
+final AS (
+    SELECT
         stop_id,
         stop_code,
         stop_name,
@@ -13,23 +13,23 @@ final as (
         zone_id,
         parent_station_id,
         location_type,
-        case location_type
-            when 0 then 'stop_or_platform'
-            when 1 then 'station'
-            when 2 then 'entrance_or_exit'
-            when 3 then 'generic_node'
-            when 4 then 'boarding_area'
-            else 'unknown'
-        end                              as location_type_name,
-        location_type = 1                as is_station,
+        CASE location_type
+            WHEN 0 THEN 'stop_or_platform'
+            WHEN 1 THEN 'station'
+            WHEN 2 THEN 'entrance_or_exit'
+            WHEN 3 THEN 'generic_node'
+            WHEN 4 THEN 'boarding_area'
+            ELSE 'unknown'
+        END AS location_type_name,
+        location_type = 1 AS is_station,
         wheelchair_boarding_code,
-        case wheelchair_boarding_code
-            when 0 then 'unknown'
-            when 1 then 'accessible'
-            when 2 then 'not_accessible'
-            else 'unknown'
-        end                              as wheelchair_boarding_name
-    from source
+        CASE wheelchair_boarding_code
+            WHEN 0 THEN 'unknown'
+            WHEN 1 THEN 'accessible'
+            WHEN 2 THEN 'not_accessible'
+            ELSE 'unknown'
+        END AS wheelchair_boarding_name
+    FROM source
 )
 
-select * from final
+SELECT * FROM final

@@ -1,20 +1,20 @@
-with source as (
-    select * from {{ source('raw_gtfs', 'trips') }}
+WITH source AS (
+    SELECT * FROM {{ source('raw_gtfs', 'trips') }}
 ),
 
-renamed as (
-    select
-        cast(trip_id as string)              as trip_id,
-        cast(route_id as string)             as route_id,
-        cast(service_id as string)           as service_id,
-        cast(trip_headsign as string)        as trip_headsign,
-        cast(trip_short_name as string)      as trip_short_name,
-        cast(direction_id as int64)          as direction_id,
-        cast(block_id as string)             as block_id,
-        cast(shape_id as string)             as shape_id,
-        cast(wheelchair_accessible as int64) as wheelchair_accessible_code,
-        cast(bikes_allowed as int64)         as bikes_allowed_code
-    from source
+renamed AS (
+    SELECT
+        CAST(trip_id AS STRING) AS trip_id,
+        CAST(route_id AS STRING) AS route_id,
+        CAST(service_id AS STRING) AS service_id,
+        CAST(trip_headsign AS STRING) AS trip_headsign,
+        CAST(trip_short_name AS STRING) AS trip_short_name,
+        CAST(direction_id AS INT64) AS direction_id,
+        CAST(block_id AS STRING) AS block_id,
+        CAST(shape_id AS STRING) AS shape_id,
+        CAST(wheelchair_accessible AS INT64) AS wheelchair_accessible_code,
+        CAST(bikes_allowed AS INT64) AS bikes_allowed_code
+    FROM source
 )
 
-select * from renamed
+SELECT * FROM renamed

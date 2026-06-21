@@ -10,60 +10,60 @@
 -- Grain: (service_id, service_date) — one row per active service-day.
 -- Materialization: ephemeral (per dbt_project.yml intermediate config).
 
-with calendar as (
-    select * from {{ ref('stg_gtfs__calendar') }}
+WITH calendar AS (
+    SELECT * FROM {{ ref('stg_gtfs__calendar') }}
 ),
 
-dates as (
-    select date_id, day_of_week from {{ ref('dim_date') }}
+dates AS (
+    SELECT date_id, day_of_week FROM {{ ref('dim_date') }}
 ),
 
-calendar_dates as (
-    select * from {{ ref('stg_gtfs__calendar_dates') }}
+calendar_dates AS (
+    SELECT * FROM {{ ref('stg_gtfs__calendar_dates') }}
 ),
 
 -- Cross-join each service's date window with the day spine,
 -- keeping only weekdays the service runs on.
 -- BigQuery convention: day_of_week 1 = Sunday, 7 = Saturday.
-base_active_dates as (
-    select
+base_active_dates AS (
+    SELECT
         c.service_id,
-        d.date_id as service_date
-    from calendar c
-    inner join dates d
-        on d.date_id between c.service_start_date and c.service_end_date
-    where
-        (d.day_of_week = 1 and c.runs_sunday)
-        or (d.day_of_week = 2 and c.runs_monday)
-        or (d.day_of_week = 3 and c.runs_tuesday)
-        or (d.day_of_week = 4 and c.runs_wednesday)
-        or (d.day_of_week = 5 and c.runs_thursday)
-        or (d.day_of_week = 6 and c.runs_friday)
-        or (d.day_of_week = 7 and c.runs_saturday)
+        d.date_id AS service_date
+    FROM calendar c
+    INNER JOIN dates d
+        ON d.date_id BETWEEN c.service_start_date AND c.service_end_date
+    WHERE
+        (d.day_of_week = 1 AND c.runs_sunday)
+        OR (d.day_of_week = 2 AND c.runs_monday)
+        OR (d.day_of_week = 3 AND c.runs_tuesday)
+        OR (d.day_of_week = 4 AND c.runs_wednesday)
+        OR (d.day_of_week = 5 AND c.runs_thursday)
+        OR (d.day_of_week = 6 AND c.runs_friday)
+        OR (d.day_of_week = 7 AND c.runs_saturday)
 ),
 
-removed_exceptions as (
-    select service_id, exception_date as service_date
-    from calendar_dates
-    where exception_type_code = 2  -- service removed on this date
+removed_exceptions AS (
+    SELECT service_id, exception_date AS service_date
+    FROM calendar_dates
+    WHERE exception_type_code = 2  -- service removed on this date
 ),
 
-added_exceptions as (
-    select service_id, exception_date as service_date
-    from calendar_dates
-    where exception_type_code = 1  -- service added on this date
+added_exceptions AS (
+    SELECT service_id, exception_date AS service_date
+    FROM calendar_dates
+    WHERE exception_type_code = 1  -- service added on this date
 ),
 
-after_removed as (
-    select * from base_active_dates
-    except distinct
-    select * from removed_exceptions
+after_removed AS (
+    SELECT * FROM base_active_dates
+    EXCEPT DISTINCT
+    SELECT * FROM removed_exceptions
 ),
 
-final as (
-    select * from after_removed
-    union distinct
-    select * from added_exceptions
+final AS (
+    SELECT * FROM after_removed
+    UNION DISTINCT
+    SELECT * FROM added_exceptions
 )
 
-select * from final
+SELECT * FROM final

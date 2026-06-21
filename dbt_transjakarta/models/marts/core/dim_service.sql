@@ -1,55 +1,55 @@
-with calendar as (
-    select * from {{ ref('stg_gtfs__calendar') }}
+WITH calendar AS (
+    SELECT * FROM {{ ref('stg_gtfs__calendar') }}
 ),
 
-active_dates as (
-    select
+active_dates AS (
+    SELECT
         service_id,
-        count(*)          as active_days_count,
-        min(service_date) as first_active_date,
-        max(service_date) as last_active_date
-    from {{ ref('int_service_calendar_unrolled') }}
-    group by service_id
+        COUNT(*) AS active_days_count,
+        MIN(service_date) AS first_active_date,
+        MAX(service_date) AS last_active_date
+    FROM {{ ref('int_service_calendar_unrolled') }}
+    GROUP BY service_id
 ),
 
-final as (
-    select
+final AS (
+    SELECT
         c.service_id,
         -- Derive a friendly name from the per-day pattern, falling back to
         -- "Custom (<id>)" when the pattern doesn't match a common shape.
-        case
-            when c.runs_monday and c.runs_tuesday and c.runs_wednesday
-                 and c.runs_thursday and c.runs_friday
-                 and c.runs_saturday and c.runs_sunday
-                then concat('Daily (', c.service_id, ')')
-            when c.runs_monday and c.runs_tuesday and c.runs_wednesday
-                 and c.runs_thursday and c.runs_friday
-                 and not c.runs_saturday and not c.runs_sunday
-                then concat('Weekday (', c.service_id, ')')
-            when not c.runs_monday and not c.runs_tuesday
-                 and not c.runs_wednesday and not c.runs_thursday
-                 and not c.runs_friday
-                 and c.runs_saturday and c.runs_sunday
-                then concat('Weekend (', c.service_id, ')')
-            when c.runs_monday and c.runs_tuesday and c.runs_wednesday
-                 and c.runs_thursday and c.runs_friday and c.runs_saturday
-                 and not c.runs_sunday
-                then concat('Mon–Sat (', c.service_id, ')')
-            when not c.runs_monday and not c.runs_tuesday
-                 and not c.runs_wednesday and not c.runs_thursday
-                 and not c.runs_friday and not c.runs_saturday
-                 and c.runs_sunday
-                then concat('Sunday only (', c.service_id, ')')
-            when not c.runs_monday and not c.runs_tuesday
-                 and not c.runs_wednesday and not c.runs_thursday
-                 and c.runs_friday and not c.runs_saturday
-                 and not c.runs_sunday
-                then concat('Friday only (', c.service_id, ')')
-            else concat('Custom (', c.service_id, ')')
-        end                                  as service_name,
+        CASE
+            WHEN c.runs_monday AND c.runs_tuesday AND c.runs_wednesday
+                 AND c.runs_thursday AND c.runs_friday
+                 AND c.runs_saturday AND c.runs_sunday
+                THEN CONCAT('Daily (', c.service_id, ')')
+            WHEN c.runs_monday AND c.runs_tuesday AND c.runs_wednesday
+                 AND c.runs_thursday AND c.runs_friday
+                 AND NOT c.runs_saturday AND NOT c.runs_sunday
+                THEN CONCAT('Weekday (', c.service_id, ')')
+            WHEN NOT c.runs_monday AND NOT c.runs_tuesday
+                 AND NOT c.runs_wednesday AND NOT c.runs_thursday
+                 AND NOT c.runs_friday
+                 AND c.runs_saturday AND c.runs_sunday
+                THEN CONCAT('Weekend (', c.service_id, ')')
+            WHEN c.runs_monday AND c.runs_tuesday AND c.runs_wednesday
+                 AND c.runs_thursday AND c.runs_friday AND c.runs_saturday
+                 AND NOT c.runs_sunday
+                THEN CONCAT('Mon–Sat (', c.service_id, ')')
+            WHEN NOT c.runs_monday AND NOT c.runs_tuesday
+                 AND NOT c.runs_wednesday AND NOT c.runs_thursday
+                 AND NOT c.runs_friday AND NOT c.runs_saturday
+                 AND c.runs_sunday
+                THEN CONCAT('Sunday only (', c.service_id, ')')
+            WHEN NOT c.runs_monday AND NOT c.runs_tuesday
+                 AND NOT c.runs_wednesday AND NOT c.runs_thursday
+                 AND c.runs_friday AND NOT c.runs_saturday
+                 AND NOT c.runs_sunday
+                THEN CONCAT('Friday only (', c.service_id, ')')
+            ELSE CONCAT('Custom (', c.service_id, ')')
+        END AS service_name,
         c.service_start_date,
         c.service_end_date,
-        coalesce(ad.active_days_count, 0)    as active_days_count,
+        COALESCE(ad.active_days_count, 0) AS active_days_count,
         ad.first_active_date,
         ad.last_active_date,
         c.runs_monday,
@@ -59,8 +59,8 @@ final as (
         c.runs_friday,
         c.runs_saturday,
         c.runs_sunday
-    from calendar c
-    left join active_dates ad using (service_id)
+    FROM calendar c
+    LEFT JOIN active_dates ad USING (service_id)
 )
 
-select * from final
+SELECT * FROM final

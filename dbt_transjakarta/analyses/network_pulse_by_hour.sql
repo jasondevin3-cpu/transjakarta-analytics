@@ -11,24 +11,24 @@
 -- Reads the pre-aggregated hourly density mart and joins dim_date only to
 -- label weekday vs. weekend, so the scan stays small.
 
-with hourly as (
-    select
+WITH hourly AS (
+    SELECT
         d.service_date,
         d.hour_of_day,
-        case when dt.is_weekend then 'Weekend' else 'Weekday' end as day_type,
-        sum(d.arrivals_count) as arrivals_count
-    from {{ ref('presentation_hourly_network_density') }} d
-    join {{ ref('dim_date') }} dt
-        on d.service_date = dt.date_id
-    group by d.service_date, d.hour_of_day, day_type
+        CASE WHEN dt.is_weekend THEN 'Weekend' ELSE 'Weekday' END AS day_type,
+        SUM(d.arrivals_count) AS arrivals_count
+    FROM {{ ref('presentation_hourly_network_density') }} d
+    JOIN {{ ref('dim_date') }} dt
+        ON d.service_date = dt.date_id
+    GROUP BY d.service_date, d.hour_of_day, day_type
 )
 
-select
+SELECT
     hour_of_day,
     day_type,
     -- Average across all dates of that day_type, so we get a representative
     -- profile rather than a single date that might be atypical.
-    round(avg(arrivals_count), 0) as avg_arrivals_per_hour
-from hourly
-group by hour_of_day, day_type
-order by hour_of_day, day_type
+    ROUND(AVG(arrivals_count), 0) AS avg_arrivals_per_hour
+FROM hourly
+GROUP BY hour_of_day, day_type
+ORDER BY hour_of_day, day_type

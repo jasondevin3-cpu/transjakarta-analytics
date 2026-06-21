@@ -6,24 +6,24 @@
 -- as an int64 for arithmetic. Trip-level service date attachment happens
 -- in the intermediate layer (int_service_calendar_unrolled + a join).
 
-with source as (
-    select * from {{ source('raw_gtfs', 'stop_times') }}
+WITH source AS (
+    SELECT * FROM {{ source('raw_gtfs', 'stop_times') }}
 ),
 
-renamed as (
-    select
-        cast(trip_id as string)              as trip_id,
-        cast(stop_id as string)              as stop_id,
-        cast(stop_sequence as int64)         as stop_sequence,
-        cast(arrival_time as string)         as arrival_time_str,
-        cast(departure_time as string)       as departure_time_str,
-        {{ gtfs_time_to_seconds('arrival_time') }}   as arrival_seconds_from_service_midnight,
-        {{ gtfs_time_to_seconds('departure_time') }} as departure_seconds_from_service_midnight,
-        cast(stop_headsign as string)        as stop_headsign,
-        cast(pickup_type as int64)           as pickup_type_code,
-        cast(drop_off_type as int64)         as drop_off_type_code,
-        cast(shape_dist_traveled as float64) as shape_distance_traveled
-    from source
+renamed AS (
+    SELECT
+        CAST(trip_id AS STRING) AS trip_id,
+        CAST(stop_id AS STRING) AS stop_id,
+        CAST(stop_sequence AS INT64) AS stop_sequence,
+        CAST(arrival_time AS STRING) AS arrival_time_str,
+        CAST(departure_time AS STRING) AS departure_time_str,
+        {{ gtfs_time_to_seconds('arrival_time') }}   AS arrival_seconds_from_service_midnight,
+        {{ gtfs_time_to_seconds('departure_time') }} AS departure_seconds_from_service_midnight,
+        CAST(stop_headsign AS STRING) AS stop_headsign,
+        CAST(pickup_type AS INT64) AS pickup_type_code,
+        CAST(drop_off_type AS INT64) AS drop_off_type_code,
+        CAST(shape_dist_traveled AS FLOAT64) AS shape_distance_traveled
+    FROM source
 )
 
-select * from renamed
+SELECT * FROM renamed

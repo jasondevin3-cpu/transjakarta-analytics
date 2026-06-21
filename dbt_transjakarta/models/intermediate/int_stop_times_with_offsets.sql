@@ -14,30 +14,30 @@
 -- Grain: (trip_id, stop_sequence) — same as stg_gtfs__stop_times.
 -- Materialization: ephemeral.
 
-with stop_times as (
-    select * from {{ ref('stg_gtfs__stop_times') }}
+WITH stop_times AS (
+    SELECT * FROM {{ ref('stg_gtfs__stop_times') }}
 ),
 
-with_offsets as (
-    select
+with_offsets AS (
+    SELECT
         trip_id,
         stop_id,
         stop_sequence,
-        arrival_seconds_from_service_midnight   as template_arrival_seconds,
-        departure_seconds_from_service_midnight as template_departure_seconds,
+        arrival_seconds_from_service_midnight AS template_arrival_seconds,
+        departure_seconds_from_service_midnight AS template_departure_seconds,
 
         -- offset from trip's first-stop arrival
         arrival_seconds_from_service_midnight
-            - min(arrival_seconds_from_service_midnight) over (partition by trip_id)
-            as arrival_offset_seconds,
+            - MIN(arrival_seconds_from_service_midnight) OVER (PARTITION BY trip_id)
+            AS arrival_offset_seconds,
 
         departure_seconds_from_service_midnight
-            - min(arrival_seconds_from_service_midnight) over (partition by trip_id)
-            as departure_offset_seconds,
+            - MIN(arrival_seconds_from_service_midnight) OVER (PARTITION BY trip_id)
+            AS departure_offset_seconds,
 
         stop_headsign,
         shape_distance_traveled
-    from stop_times
+    FROM stop_times
 )
 
-select * from with_offsets
+SELECT * FROM with_offsets

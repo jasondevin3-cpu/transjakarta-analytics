@@ -11,29 +11,29 @@
 -- Grain: (trip_id, departure_seconds_from_service_midnight).
 -- Expected size: ~23k rows.
 
-with expanded as (
-    select * from {{ ref('int_frequencies_expanded') }}
+WITH expanded AS (
+    SELECT * FROM {{ ref('int_frequencies_expanded') }}
 ),
 
-trips as (
-    select * from {{ ref('stg_gtfs__trips') }}
+trips AS (
+    SELECT * FROM {{ ref('stg_gtfs__trips') }}
 ),
 
-routes as (
-    select * from {{ ref('dim_route') }}
+routes AS (
+    SELECT * FROM {{ ref('dim_route') }}
 ),
 
-services as (
-    select * from {{ ref('dim_service') }}
+services AS (
+    SELECT * FROM {{ ref('dim_service') }}
 ),
 
-final as (
-    select
+final AS (
+    SELECT
         -- stable surrogate key for the realized abstract departure
         {{ dbt_utils.generate_surrogate_key([
             't.trip_id',
             'e.departure_seconds_from_service_midnight'
-        ]) }}                                          as scheduled_trip_id,
+        ]) }} AS scheduled_trip_id,
 
         -- core identifiers
         t.trip_id,
@@ -46,24 +46,24 @@ final as (
 
         -- realized departure
         e.departure_seconds_from_service_midnight,
-        e.window_start_seconds                         as source_window_start_seconds,
-        e.window_end_seconds                           as source_window_end_seconds,
+        e.window_start_seconds AS source_window_start_seconds,
+        e.window_end_seconds AS source_window_end_seconds,
         e.source_headway_seconds,
         e.is_exact_times,
 
         -- denormalized route attributes
-        r.service_category                             as route_service_category,
+        r.service_category AS route_service_category,
         r.route_short_name,
         r.route_long_name,
         r.route_color_hex,
 
         -- denormalized service attributes
         s.service_name,
-        s.active_days_count                            as service_active_days_count
-    from expanded e
-    inner join trips t using (trip_id)
-    left  join routes r using (route_id)
-    left  join services s using (service_id)
+        s.active_days_count AS service_active_days_count
+    FROM expanded e
+    INNER JOIN trips t USING (trip_id)
+    LEFT JOIN routes r USING (route_id)
+    LEFT JOIN services s USING (service_id)
 )
 
-select * from final
+SELECT * FROM final
