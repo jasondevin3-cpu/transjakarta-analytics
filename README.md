@@ -24,6 +24,26 @@ Two headline reads from the modeled schedule (every query below is reproducible 
 
 **Transjakarta schedules a flat, all-day level of service — with no weekday/weekend distinction.** Network-wide scheduled arrivals ramp from ~71k/hour at 5am to a remarkably constant **~167k/hour plateau that holds from 7am to 9pm**, then wind down by midnight. Weekday and weekend profiles are nearly identical (9am: 168,052 vs 167,746). In other words, the *timetable* commits a steady supply across the whole operating day rather than intensifying for rush hour. That makes ridership (actual demand) the natural next data layer to overlay — the question "where does flat supply meet peaky demand?" is exactly what this model is built to answer next.
 
+### More from the supply side
+
+Three further reads, each reproducible as a dbt analysis in [`dbt_transjakarta/analyses/`](dbt_transjakarta/analyses).
+
+**Three-quarters of the network is "turn-up-and-go."** Bucketing all 70,322 daily scheduled departures by the headway they run at, 74% come every 10 minutes or better (67% at a 6–10 min headway, another 7% at 5 min or better) and only ~3% run worse than every 20 minutes. Transjakarta is designed as a high-frequency network where, for most service, a rider never needs the timetable. *(See `service_frequency_tiers.sql`.)*
+
+**The "flat all-day" pattern belongs to the mass-transit tiers — one tier breaks it.** Putting a number on the peak: the busiest network hour (09:00, ~172k arrivals) sits just 2% above the average daytime hour — a *peaking factor* of 1.02, i.e. effectively no rush hour. But decomposing by service tier shows that flatness is a property of the high-volume tiers (Mikrotrans, BRT and the integration feeders all sit at ~1.0). The premium **Royaltrans** commuter coaches are the exception: they peak ~3× at 07:00, a genuine morning commute, and the **Bus Wisata** tourist service peaks midday. The network average looks flat only because the commuter-peaked tiers are tiny. *(See `peaking_factor_by_service_category.sql`.)*
+
+**"Transjakarta" is mostly a microbus feeder network, not the iconic BRT.** Splitting scheduled supply across operational tiers:
+
+| Service tier | Scheduled departures / day | Share | Routes | Stops served |
+|--------------|---------------------------:|------:|-------:|-------------:|
+| Mikrotrans (Jak Lingko microbuses) | 37,299 | 53.0% | 99 | 5,824 |
+| BRT (trunk corridors) | 16,728 | 23.8% | 32 | 535 |
+| Angkutan Umum Integrasi | 9,804 | 13.9% | 66 | 2,248 |
+| Transjabodetabek | 4,107 | 5.8% | 18 | 508 |
+| Rusun / Shuttle / Royaltrans / Bus Wisata | 2,384 | 3.4% | 38 | — |
+
+The brand is the red BRT artic buses, but they're under a quarter of scheduled departures; the bulk of committed service is the Mikrotrans feeder layer reaching ~5,800 stops. *(See `service_tier_mix.sql`; `top_interchange_hubs.sql` ranks the busiest transfer points.)*
+
 ---
 
 ## Architecture
@@ -126,7 +146,6 @@ This project uses BigQuery free tier (10 GB storage + 1 TB queries / month) and 
    - `staging`
    - `marts_core`
    - `marts_presentation`
-   - `dbt_dev_jason` (or similar; personal dev schema for dbt)
 5. **Create a service account** with roles: `BigQuery Data Editor`, `BigQuery Job User`, `Storage Object Admin` (scoped to the bucket above). Download the JSON key as `gcp-service-account.json` to the repo root — it's already in `.gitignore`.
 6. **Copy `.env.example` to `.env`** and fill in `GCP_PROJECT_ID`, `GCS_BUCKET`, and `GTFS_FEED_URL` (find the current Transjakarta GTFS feed URL at [mobilitydatabase.org](https://mobilitydatabase.org) or the official open-data portal).
 7. **Copy `dbt_transjakarta/profiles.yml.template`** to `~/.dbt/profiles.yml` and update the `project`, `keyfile`, and `dataset` values.

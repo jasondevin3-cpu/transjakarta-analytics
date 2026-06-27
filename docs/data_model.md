@@ -5,7 +5,8 @@ how one real trip flows from the raw GTFS feed all the way to the presentation t
 If you only read one doc to understand the warehouse, read this one.
 
 All row counts below are from the **2026-04-30 GTFS snapshot** (the zip Transjakarta
-emailed, loaded 2026-05-21). They're verified against the live `dbt_dev_jason_*` tables,
+emailed, loaded 2026-05-21). They're verified against the live warehouse tables (in the
+`staging` / `marts_core` / `marts_presentation` datasets),
 not estimated.
 
 ---

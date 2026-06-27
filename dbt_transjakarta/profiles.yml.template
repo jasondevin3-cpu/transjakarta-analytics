@@ -1,5 +1,9 @@
 # Copy to ~/.dbt/profiles.yml (or symlink) and fill in real values.
 # Never commit a populated profiles.yml — see .gitignore.
+#
+# Single environment. The custom macro macros/generate_schema_name.sql makes every
+# model land in exactly its +schema dataset (staging, marts_core, marts_presentation)
+# with no prefix. The `dataset` below is only a fallback for models without a +schema.
 
 transjakarta_analytics:
   target: dev
@@ -8,21 +12,10 @@ transjakarta_analytics:
       type: bigquery
       method: service-account
       project: your-gcp-project-id
-      dataset: dbt_dev_jason         # personal dev schema, prefixed dbt_dev_
+      dataset: analytics_default
       keyfile: /absolute/path/to/gcp-service-account.json
       threads: 4
       location: asia-southeast2
       priority: interactive
       timeout_seconds: 300
       retries: 1
-    prod:
-      type: bigquery
-      method: service-account
-      project: your-gcp-project-id
-      dataset: marts
-      keyfile: /absolute/path/to/gcp-service-account.json
-      threads: 8
-      location: asia-southeast2
-      priority: batch
-      timeout_seconds: 600
-      retries: 2

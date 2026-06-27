@@ -130,8 +130,7 @@ Six datasets, all in `asia-southeast2`. The first four are populated by the pipe
 | `raw_jakarta_open_data`    | `ingestion/jakarta_open_data/` | Open-data CSVs/Excels       |
 | `staging`                  | dbt                      | `stg_*` views                     |
 | `marts_core`               | dbt                      | `dim_*`, `fact_*` tables          |
-| `marts_presentation`       | dbt                      | `report_*` tables                 |
-| `dbt_dev_jason`            | dbt (your personal dev)  | Your own dev runs                 |
+| `marts_presentation`       | dbt                      | `presentation_*` tables           |
 
 **Console path** (for each dataset):
 1. Left nav → **BigQuery → Studio**.
@@ -146,7 +145,7 @@ Six datasets, all in `asia-southeast2`. The first four are populated by the pipe
 
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
-for ds in raw_gtfs raw_jakarta_open_data staging marts_core marts_presentation dbt_dev_jason; do
+for ds in raw_gtfs staging marts_core marts_presentation; do
     bq --location=asia-southeast2 mk --dataset \
         --description="Transjakarta analytics: ${ds}" \
         ${PROJECT_ID}:${ds}
@@ -299,9 +298,9 @@ cp dbt_transjakarta/profiles.yml.template ~/.dbt/profiles.yml
 ```
 
 Open `~/.dbt/profiles.yml` and replace:
-- `your-gcp-project-id` → your real project ID (both `dev` and `prod` blocks)
+- `your-gcp-project-id` → your real project ID
 - `/absolute/path/to/gcp-service-account.json` → the full absolute path to the JSON key (e.g. `/Users/jasondevin/Documents/transjakarta_analysis/gcp-service-account.json`)
-- For the `dev` block, change `dbt_dev_jason` to whatever personal dev dataset you created in step 5.
+- The custom `generate_schema_name` macro routes each model to its `+schema` dataset (`staging`, `marts_core`, `marts_presentation`), so `dataset:` is just a fallback and needs no per-user change.
 
 ---
 

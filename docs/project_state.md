@@ -31,7 +31,7 @@ End-to-end analytics project on publicly available **Transjakarta GTFS data**, b
   - `staging` — dbt `stg_*` views
   - `marts_core` — dbt `dim_*`, `fact_*` tables (Phase 2)
   - `marts_presentation` — dbt `report_*` tables (Phase 3)
-  - `dbt_dev_jason` — personal dev sandbox
+  - (retired 2026-06-27) the `dbt_dev_jason*` dev sandbox — collapsed to a single clean environment; see "Dataset cleanup" below
 
 ## Naming convention (locked in)
 
@@ -96,7 +96,7 @@ End-to-end analytics project on publicly available **Transjakarta GTFS data**, b
 
 **Final `dbt build` state: PASS=104/104, 16 models, 91 data tests, 9 sources.**
 
-Layer breakdown of what's now in `dbt_dev_jason_*`:
+Layer breakdown of what's built (datasets `staging` / `marts_core` / `marts_presentation`; originally built into `dbt_dev_jason_*`, renamed 2026-06-27):
 
 | Model                              | Layer           | Materialization | Rows       | Notes                                                                                       |
 |------------------------------------|-----------------|-----------------|------------|---------------------------------------------------------------------------------------------|
@@ -156,6 +156,17 @@ Goal this session: simplify for understanding without sacrificing quality.
 - **New doc `docs/data_model.md`** is now the canonical "how the data flows" reference (lineage diagram + per-model table + L13E walkthrough + the three tricky conventions).
 - **Comment/header consistency + row-count fixes:** dims got standard headers; the stale `~23k`/`~2.6M` row-count comments were corrected to the verified 70,322 / 2,984,706.
 - **Remaining consolidation candidates (not done):** the two-fact split, and whether all three `presentation_*` tables are actually consumed by a dashboard.
+
+### Dataset cleanup — collapse to one clean environment (2026-06-27)
+
+The project had 8 BigQuery datasets but only needed 4. The `dbt_dev_jason_*` prefix came from the dbt default `<target.schema>_<custom_schema>` rule applied to the `dev` target (`dataset: dbt_dev_jason`); the bare `staging` / `marts_core` / `marts_presentation` (and a bare `dbt_dev_jason`) were empty leftovers from initial setup, since the `prod` target was never run.
+
+Decision: drop the dev/prod sandbox split (over-engineering for a solo project) in favour of a single clean environment.
+
+- Added `macros/generate_schema_name.sql` — returns the model's `+schema` name directly, so models build into clean `staging` / `marts_core` / `marts_presentation` with no prefix.
+- Simplified `profiles.yml` + `profiles.yml.template` to a single `dev` target (removed the dead `prod` target); `dataset:` is now just a fallback (`analytics_default`).
+- **Cutover — DONE (2026-06-27).** `dbt build` rebuilt into the clean datasets (verified row counts match: `fact_scheduled_stop_event` 2,984,706, `fact_scheduled_trip` 70,322, etc.), and the 4 obsolete `dbt_dev_jason*` datasets were dropped. Live dataset list is now exactly `raw_gtfs`, `staging`, `marts_core`, `marts_presentation`.
+- **Re-point — DONE.** The Cowork BigQuery connector is project-level so it sees the clean datasets automatically; all queries now use `marts_core` / `marts_presentation` / `staging`. (Drop datasets one DDL statement per call via the connector and verify against `region-asia-southeast2.INFORMATION_SCHEMA.SCHEMATA` — a multi-statement DROP script silently no-ops, and the connector's `list_dataset_ids` is cached.)
 
 ### Ongoing — iteration expected (this is a living project, NOT frozen)
 
