@@ -1,18 +1,48 @@
--- One row per realized abstract scheduled trip — i.e., one row per
--- (trip_id, realized departure time). Built by joining the
--- frequency-expanded departures with the trip metadata and denormalizing
--- in the most analyst-useful route / service attributes.
+-- Purpose: one row per realized abstract scheduled trip — i.e. one row per
+--          (trip_id, realized departure time) — with route and service
+--          attributes denormalized in for analyst convenience.
+-- Grain:   (trip_id, departure_seconds_from_service_midnight).
+-- Material: table (marts_core).
+-- Rows:    70,322 (snapshot 2026-04-30).
 --
--- "Abstract" here means we do NOT enumerate service dates — that explosion
--- happens downstream in fact_scheduled_stop_event. Querying total daily
--- departures from this table requires a join with dim_service to know
--- which dates each trip's service_id is active.
+-- "Abstract" means we do NOT enumerate service dates here — that explosion
+-- happens downstream in fact_scheduled_stop_event. To count real daily
+-- departures, join dim_service to know which dates each service_id is active.
 --
--- Grain: (trip_id, departure_seconds_from_service_midnight).
--- Expected size: ~23k rows.
+-- Note: the frequency-expansion step below used to live in its own
+-- intermediate model (int_frequencies_expanded). It had exactly one consumer
+-- — this model — so it was inlined here as a CTE to remove a single-use
+-- "phantom" model. The shared calendar logic stays in int_service_calendar_unrolled.
 
-WITH expanded AS (
-    SELECT * FROM {{ ref('int_frequencies_expanded') }}
+WITH frequencies AS (
+    SELECT * FROM {{ ref('stg_gtfs__frequencies') }}
+),
+
+-- Expand each frequency window into one row per realized abstract departure.
+-- A row like (trip=10A-L02, start=05:00, end=22:00, headway=2180) becomes
+-- ~28 rows, one per (start + N*headway).
+--
+-- GTFS semantics: end_time is EXCLUSIVE (a departure exactly at end_time is
+-- not generated). We enforce that with `end_seconds - 1` as the GENERATE_ARRAY
+-- upper bound — safe because no two TJ windows produce departures less than
+-- 1 second apart, and adjacent windows already share a boundary (the next
+-- window owns the boundary timestamp).
+expanded AS (
+    SELECT
+        f.trip_id,
+        departure_seconds AS departure_seconds_from_service_midnight,
+        f.start_seconds_from_service_midnight AS window_start_seconds,
+        f.end_seconds_from_service_midnight AS window_end_seconds,
+        f.headway_seconds AS source_headway_seconds,
+        f.is_exact_times
+    FROM frequencies f,
+    UNNEST(
+        GENERATE_ARRAY(
+            f.start_seconds_from_service_midnight,
+            f.end_seconds_from_service_midnight - 1,
+            f.headway_seconds
+        )
+    ) AS departure_seconds
 ),
 
 trips AS (

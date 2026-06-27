@@ -1,3 +1,9 @@
+-- Purpose: route dimension — clean route attributes plus a derived
+--          service_category (BRT, Mikrotrans, Royaltrans, …) from route_desc.
+-- Grain:   route_id.
+-- Material: table (marts_core).
+-- Rows:    253 (snapshot 2026-04-30).
+
 WITH source AS (
     SELECT * FROM {{ ref('stg_gtfs__routes') }}
 ),

@@ -9,6 +9,11 @@
 --
 -- Grain: (service_id, service_date) — one row per active service-day.
 -- Materialization: ephemeral (per dbt_project.yml intermediate config).
+--
+-- This is the project's ONLY intermediate model. It earns its place because
+-- three models reuse it (dim_service + the two date-expanding presentation
+-- tables) — keeping the logic here avoids copy-pasting it in three places.
+-- The two former single-use intermediates were inlined into their facts.
 
 WITH calendar AS (
     SELECT * FROM {{ ref('stg_gtfs__calendar') }}

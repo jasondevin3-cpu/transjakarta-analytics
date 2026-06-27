@@ -1,3 +1,9 @@
+-- Purpose: stop dimension — clean stop attributes; decodes location_type and
+--          wheelchair_boarding; adds an is_station flag.
+-- Grain:   stop_id.
+-- Material: table (marts_core).
+-- Rows:    8,216 (snapshot 2026-04-30).
+
 WITH source AS (
     SELECT * FROM {{ ref('stg_gtfs__stops') }}
 ),

@@ -125,8 +125,9 @@ models:
     description: |
       Apex fact of the model. One row per scheduled stop visit for every
       realized scheduled trip — i.e., every (scheduled_trip × stop_sequence)
-      pair. Built from fact_scheduled_trip × int_stop_times_with_offsets.
-      ~2.6M rows for TJ. This is the queryable surface for every
+      pair. Built from fact_scheduled_trip joined to per-stop offsets derived
+      inline from stg_gtfs__stop_times. ~2.98M rows for TJ. This is the
+      queryable surface for every
       stop-level analytical question (busiest stops, peak-hour density,
       headway distributions, etc.).
     columns:

@@ -148,6 +148,15 @@ The GTFS-only project reached a complete, publishable v1 this session:
 - **Two dbt analyses added** in `dbt_transjakarta/analyses/` (compiled, not materialized): `busiest_corridors_by_scheduled_supply.sql` and `network_pulse_by_hour.sql`. Run them with `dbt show --inline "<sql>"` (note: `dbt show -s analysis:<name>` does NOT work — analyses have no run selector; either inline the SQL or compile + paste from `target/compiled/...`).
 - **README now leads with a "Key findings" section** built on real query output: Corridor 8/9/1/10/3 top the scheduled-supply ranking; network-wide scheduled arrivals hold a flat ~167k/hr plateau 7am–9pm with **no weekday/weekend difference** (the timetable commits constant all-day supply — a clean setup for why ridership/demand would be the natural next data layer).
 
+### Structure simplification (2026-06-27)
+
+Goal this session: simplify for understanding without sacrificing quality.
+
+- **Intermediates 3 → 1.** `int_frequencies_expanded` and `int_stop_times_with_offsets` each had a single consumer, so they were inlined as CTEs into `fact_scheduled_trip` and `fact_scheduled_stop_event`. `int_service_calendar_unrolled` stays (3 consumers — genuine DRY). Verified on BigQuery: new logic returns identical row counts (70,322 and 2,984,706). **Confirmed green (2026-06-27): `dbt build` PASS=129, unchanged** — ephemeral models aren't executed nodes (the count is 9 tables + 7 views + 113 tests = 129), so removing two of them doesn't move it. Both facts rebuilt at 70.3k / 3.0M rows with all uniqueness + relationship tests passing.
+- **New doc `docs/data_model.md`** is now the canonical "how the data flows" reference (lineage diagram + per-model table + L13E walkthrough + the three tricky conventions).
+- **Comment/header consistency + row-count fixes:** dims got standard headers; the stale `~23k`/`~2.6M` row-count comments were corrected to the verified 70,322 / 2,984,706.
+- **Remaining consolidation candidates (not done):** the two-fact split, and whether all three `presentation_*` tables are actually consumed by a dashboard.
+
 ### Ongoing — iteration expected (this is a living project, NOT frozen)
 
 **Note for future sessions:** Jason intends to keep iterating on this project himself, **especially on the query / business-logic side** — refining the analyses, adding new ones, adjusting mart logic and definitions as his understanding of the data deepens. Treat the current marts and analyses as a solid v1 baseline, not a finished spec. Expect changes to: analysis SQL in `analyses/`, the `presentation_*` mart definitions, headway/service-window/service-category business rules, and possibly the grain or columns of the marts. When picking up, ask Jason what he wants to change rather than assuming the current logic is fixed.
@@ -198,7 +207,8 @@ The GTFS-only project reached a complete, publishable v1 this session:
 - `dbt_transjakarta/profiles.yml` — local copy of BQ connection (gitignored); also copied to `~/.dbt/profiles.yml`
 - `dbt_transjakarta/packages.yml` — dbt deps
 - `dbt_transjakarta/models/staging/gtfs/` — seven `stg_gtfs__*` models + sources + schema
-- `dbt_transjakarta/models/intermediate/` — three ephemeral `int_*` models (`service_calendar_unrolled`, `frequencies_expanded`, `stop_times_with_offsets`)
+- `dbt_transjakarta/models/intermediate/` — **one** ephemeral `int_*` model (`service_calendar_unrolled`). The other two (`frequencies_expanded`, `stop_times_with_offsets`) were inlined into their facts on 2026-06-27 (single-consumer each).
+- `docs/data_model.md` — single-page map of the whole warehouse (lineage diagram, per-model grain/rows/purpose, L13E walkthrough). Public-facing; start here to understand the models.
 - `dbt_transjakarta/models/marts/core/` — four dims (`dim_date`, `dim_route`, `dim_stop`, `dim_service`) + two facts (`fact_scheduled_trip`, `fact_scheduled_stop_event`) + `_core__models.yml`
 - `dbt_transjakarta/models/marts/presentation/` — three `presentation_*` denormalized wide tables (`route_summary`, `daily_stop_arrivals`, `hourly_network_density`) + `_presentation__models.yml` (Phase 3 batch 1)
 - `dbt_transjakarta/macros/gtfs_time_to_seconds.sql` — custom time-parsing macro

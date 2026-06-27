@@ -2,6 +2,7 @@
 -- so any fact with a date column can be joined for time-based slicing.
 -- Range: 2020-01-01 through 2030-12-31 (covers the GTFS calendar's window
 -- with comfortable headroom on both ends).
+-- Grain: date. Material: table (marts_core). Rows: 4,018 (snapshot 2026-04-30).
 
 WITH date_spine AS (
     SELECT day AS date_id

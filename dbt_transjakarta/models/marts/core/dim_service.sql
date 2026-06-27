@@ -1,3 +1,9 @@
+-- Purpose: service dimension — one row per GTFS service pattern, with a
+--          friendly service_name and active_days_count from the unrolled calendar.
+-- Grain:   service_id.
+-- Material: table (marts_core).
+-- Rows:    7 (snapshot 2026-04-30).
+
 WITH calendar AS (
     SELECT * FROM {{ ref('stg_gtfs__calendar') }}
 ),
