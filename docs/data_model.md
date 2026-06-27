@@ -136,16 +136,18 @@ window. Here's how one of its departures comes to exist as data.
    name, service category, and service calendar. Grain: (trip_id, departure time).
 
 3. **stop expansion (inside `fact_scheduled_stop_event`).** Each L13E departure is crossed
-   with its 25-stop template from `stg_gtfs__stop_times`. The template stores each stop's
-   **offset** from the trip's first stop (stop 0 = +0s, stop 1 = +181s, …). Add the offset
-   to the realized departure and you get the realized arrival at every stop. One departure
-   becomes 25 stop-event rows. Grain: (scheduled_trip, stop_sequence).
+   with its trip's stop template from `stg_gtfs__stop_times`. The template stores each stop's
+   **offset** from the trip's first stop (for trip L13E-R03: stop 0 = +0s, stop 1 = +133s,
+   stop 2 = +865s, …). Add the offset to the realized departure and you get the realized
+   arrival at every stop. One departure becomes as many rows as that trip has stops (L13E's
+   five patterns range from 6 to 25 stops). Grain: (scheduled_trip, stop_sequence).
 
 4. **presentation.** `presentation_route_summary` rolls all of L13E's rows back up into the
    one-line KPIs above; the daily/hourly tables expand across real service dates (using
    `int_service_calendar_unrolled`) for dashboards.
 
-So one frequency window → ~839 departures → ~21,000 stop events a day, just for L13E.
+So L13E's 5 frequency windows → 839 departures → 10,421 stop events, then roll back up
+to 1 summary row.
 
 ---
 
